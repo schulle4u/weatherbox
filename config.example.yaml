@@ -70,7 +70,7 @@ announcements:
     template: >
       Es ist {time}. Hier ist das aktuelle Wetter für {location}.
       Die Temperatur beträgt {temperature} Grad.
-      Der Himmel ist {weather_description}.
+      {weather_description}.
   full_hour:
     enabled: true
     template: >

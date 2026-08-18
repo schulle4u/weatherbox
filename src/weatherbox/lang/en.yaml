@@ -59,8 +59,8 @@ date:
 weather:
   unknown: "weather code {code}"
   descriptions:
-    0: clear
-    1: mainly clear
+    0: clear sky
+    1: mainly clear sky
     2: partly cloudy
     3: overcast
     45: foggy

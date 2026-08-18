@@ -63,10 +63,10 @@ date:
 weather:
   unknown: "Wettercode {code}"
   descriptions:
-    0: "klar"
-    1: "überwiegend klar"
-    2: "teilweise bewölkt"
-    3: "bedeckt"
+    0: "der Himmel ist klar"
+    1: "der Himmel ist überwiegend klar"
+    2: "der Himmel ist teilweise bewölkt"
+    3: "der Himmel ist bedeckt"
     45: "neblig"
     48: "neblig mit Reifablagerungen"
     51: "leichter Nieselregen"
