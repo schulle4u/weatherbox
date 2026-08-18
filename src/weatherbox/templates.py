@@ -1,3 +1,5 @@
+"""Build and safely render localized announcement templates."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -26,6 +28,7 @@ def build_context(
     weather: WeatherData,
     formatter: LanguageFormatter,
 ) -> dict[str, Any]:
+    """Build the localized placeholder values for an announcement template."""
     context: dict[str, Any] = {
         "time": formatter.format_time(playback_at),
         "hour": formatter.format_hour(playback_at.hour),
@@ -52,6 +55,7 @@ def build_context(
 
 
 def render_template(template: str, context: dict[str, Any]) -> str:
+    """Render a template after validating its fields and required values."""
     fields: set[str] = set()
     try:
         parsed = Formatter().parse(template)

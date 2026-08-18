@@ -1,3 +1,5 @@
+"""Manage versioned and stable paths for generated audio assets."""
+
 from __future__ import annotations
 
 import os
@@ -10,11 +12,15 @@ from weatherbox.models import AnnouncementKind, AudioAsset
 
 
 class AssetManager:
+    """Publish generated audio to versioned and stable public paths."""
+
     def __init__(self, generated_dir: Path, public_dir: Path) -> None:
+        """Initialize the manager with generated and public root directories."""
         self.generated_dir = generated_dir
         self.public_dir = public_dir
 
     def paths(self, location_id: str, kind: AnnouncementKind, playback_at) -> AudioAsset:
+        """Build the versioned and public paths for an announcement."""
         date_dir = self.generated_dir / location_id / playback_at.date().isoformat()
         filename = f"{playback_at:%H-%M}-{kind.short_name}.mp3"
         return AudioAsset(
@@ -26,6 +32,7 @@ class AssetManager:
         )
 
     def publish(self, source: Path, asset: AudioAsset) -> AudioAsset:
+        """Atomically copy a generated MP3 to its versioned and public paths."""
         if not source.is_file() or source.stat().st_size == 0:
             raise AssetPublicationError("Zu veröffentlichendes Asset fehlt oder ist leer")
         asset.versioned_path.parent.mkdir(parents=True, exist_ok=True)
@@ -46,6 +53,7 @@ class AssetManager:
 
     @staticmethod
     def _copy_to_temporary(source: Path, target_dir: Path) -> Path:
+        """Copy a source file to a flushed temporary file in ``target_dir``."""
         fd, name = tempfile.mkstemp(prefix=".weatherbox-", suffix=".mp3", dir=target_dir)
         os.close(fd)
         temporary = Path(name)

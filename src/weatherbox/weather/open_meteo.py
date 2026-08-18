@@ -1,3 +1,5 @@
+"""Retrieve and parse hourly forecasts from the Open-Meteo API."""
+
 from __future__ import annotations
 
 import json
@@ -20,11 +22,15 @@ HOURLY_FIELDS = (
 
 
 class OpenMeteoProvider:
+    """Fetch location forecasts from an Open-Meteo-compatible endpoint."""
+
     def __init__(self, endpoint: str, timeout_seconds: float = 15) -> None:
+        """Initialize the provider with an endpoint and request timeout."""
         self.endpoint = endpoint
         self.timeout_seconds = timeout_seconds
 
     def fetch(self, location: Location) -> ForecastBundle:
+        """Fetch and parse a two-day hourly forecast for ``location``."""
         query = urlencode(
             {
                 "latitude": location.latitude,
@@ -49,6 +55,7 @@ class OpenMeteoProvider:
 
     @staticmethod
     def _parse(payload: dict[str, Any], timezone: str) -> ForecastBundle:
+        """Convert an Open-Meteo response into the internal forecast model."""
         zone = ZoneInfo(timezone)
         hourly = payload["hourly"]
         daily = payload.get("daily", {})
@@ -88,11 +95,13 @@ class OpenMeteoProvider:
 
 
 def _local_datetime(value: str, zone: ZoneInfo) -> datetime:
+    """Parse an API timestamp and normalize it to the requested time zone."""
     parsed = datetime.fromisoformat(value)
     return parsed.replace(tzinfo=zone) if parsed.tzinfo is None else parsed.astimezone(zone)
 
 
 def _at(hourly: dict[str, list[Any]], field: str, index: int) -> float | None:
+    """Return an optional hourly field value as a float."""
     values = hourly.get(field, [])
     if index >= len(values) or values[index] is None:
         return None

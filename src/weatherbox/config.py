@@ -1,3 +1,5 @@
+"""Load and validate Weatherbox YAML configuration."""
+
 from __future__ import annotations
 
 import re
@@ -15,18 +17,24 @@ from weatherbox.models import AnnouncementKind, AnnouncementSpec, Location
 
 @dataclass(frozen=True, slots=True)
 class ApplicationSettings:
+    """Application-wide logging settings."""
+
     log_level: str
     json_logs: bool
 
 
 @dataclass(frozen=True, slots=True)
 class LocalizationSettings:
+    """Language defaults and optional custom resource location."""
+
     default_language: str
     directory: Path | None
 
 
 @dataclass(frozen=True, slots=True)
 class WeatherSettings:
+    """Weather provider and cache freshness settings."""
+
     update_interval_minutes: int
     max_cache_age_minutes: int
     request_timeout_seconds: float
@@ -35,24 +43,32 @@ class WeatherSettings:
 
 @dataclass(frozen=True, slots=True)
 class RetrySettings:
+    """Retry interval and attempt limit for failed announcements."""
+
     interval_seconds: int
     max_attempts: int
 
 
 @dataclass(frozen=True, slots=True)
 class SchedulerSettings:
+    """Announcement preparation window and retry policy."""
+
     preparation_minutes: int
     retry: RetrySettings
 
 
 @dataclass(frozen=True, slots=True)
 class PiperSettings:
+    """Piper executable and voice model settings."""
+
     executable: str
     model: Path
 
 
 @dataclass(frozen=True, slots=True)
 class EspeakSettings:
+    """eSpeak NG executable, voice, and speech rate settings."""
+
     executable: str
     voice: str
     speed: int
@@ -60,6 +76,8 @@ class EspeakSettings:
 
 @dataclass(frozen=True, slots=True)
 class TTSSettings:
+    """Text-to-speech providers and language-specific overrides."""
+
     provider: str
     fallback_provider: str | None
     piper: PiperSettings
@@ -69,12 +87,16 @@ class TTSSettings:
 
 @dataclass(frozen=True, slots=True)
 class TTSLanguageSettings:
+    """Optional provider overrides for a single language."""
+
     piper_model: Path | None
     espeak_voice: str | None
 
 
 @dataclass(frozen=True, slots=True)
 class LoudnessSettings:
+    """Target values for optional loudness normalization."""
+
     enabled: bool
     target_lufs: float
     true_peak_db: float
@@ -83,6 +105,8 @@ class LoudnessSettings:
 
 @dataclass(frozen=True, slots=True)
 class AudioOutputSettings:
+    """Encoding settings for generated MP3 files."""
+
     sample_rate: int
     channels: int
     bitrate: str
@@ -90,6 +114,8 @@ class AudioOutputSettings:
 
 @dataclass(frozen=True, slots=True)
 class AudioSettings:
+    """Audio tool locations, normalization, and output settings."""
+
     ffmpeg: str
     ffprobe: str
     loudness: LoudnessSettings
@@ -98,6 +124,8 @@ class AudioSettings:
 
 @dataclass(frozen=True, slots=True)
 class OutputSettings:
+    """Filesystem destinations for caches, assets, and state."""
+
     cache_dir: Path
     generated_dir: Path
     public_dir: Path
@@ -106,6 +134,8 @@ class OutputSettings:
 
 @dataclass(frozen=True, slots=True)
 class Config:
+    """Fully validated Weatherbox configuration."""
+
     source_path: Path
     application: ApplicationSettings
     localization: LocalizationSettings
@@ -118,10 +148,12 @@ class Config:
 
     @property
     def enabled_locations(self) -> tuple[Location, ...]:
+        """Return all locations enabled for announcement generation."""
         return tuple(location for location in self.locations.values() if location.enabled)
 
 
 def _mapping(data: dict[str, Any], key: str) -> dict[str, Any]:
+    """Return a configuration section and ensure it is a mapping."""
     value = data.get(key, {})
     if not isinstance(value, dict):
         raise ConfigurationError(f"'{key}' muss ein YAML-Objekt sein")
@@ -129,6 +161,7 @@ def _mapping(data: dict[str, Any], key: str) -> dict[str, Any]:
 
 
 def _positive(value: Any, path: str, *, allow_zero: bool = False) -> int:
+    """Parse and validate a positive configuration integer."""
     try:
         number = int(value)
     except (TypeError, ValueError) as exc:
@@ -140,11 +173,13 @@ def _positive(value: Any, path: str, *, allow_zero: bool = False) -> int:
 
 
 def _resolve(base: Path, value: str | Path) -> Path:
+    """Resolve a configured path relative to the configuration directory."""
     path = Path(value).expanduser()
     return path if path.is_absolute() else (base / path).resolve()
 
 
 def load_config(path: str | Path) -> Config:
+    """Load a YAML file and return its validated application configuration."""
     source = Path(path).expanduser().resolve()
     try:
         raw = yaml.safe_load(source.read_text(encoding="utf-8")) or {}

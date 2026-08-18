@@ -1,3 +1,5 @@
+"""Configure human-readable or structured JSON application logging."""
+
 from __future__ import annotations
 
 import json
@@ -9,7 +11,10 @@ _STANDARD_FIELDS = set(logging.makeLogRecord({}).__dict__)
 
 
 class JsonFormatter(logging.Formatter):
+    """Serialize log records and their custom fields as JSON objects."""
+
     def format(self, record: logging.LogRecord) -> str:
+        """Return a JSON representation of a log record."""
         payload = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "level": record.levelname,
@@ -25,6 +30,7 @@ class JsonFormatter(logging.Formatter):
 
 
 def configure_logging(level: str = "INFO", json_logs: bool = False) -> None:
+    """Replace root handlers with the configured console logger."""
     handler = logging.StreamHandler()
     if json_logs:
         handler.setFormatter(JsonFormatter())
@@ -34,4 +40,3 @@ def configure_logging(level: str = "INFO", json_logs: bool = False) -> None:
     root.handlers.clear()
     root.addHandler(handler)
     root.setLevel(level)
-

@@ -1,3 +1,5 @@
+"""Persist the lifecycle state of scheduled announcements."""
+
 from __future__ import annotations
 
 import json
@@ -13,6 +15,8 @@ from weatherbox.models import AnnouncementStatus, ScheduledAnnouncement
 
 @dataclass(frozen=True, slots=True)
 class StateEntry:
+    """Persistent status and retry metadata for one announcement."""
+
     status: AnnouncementStatus
     attempts: int
     updated_at: datetime
@@ -21,6 +25,7 @@ class StateEntry:
 
     @classmethod
     def from_dict(cls, value: dict[str, Any]) -> StateEntry:
+        """Deserialize an entry from JSON-compatible values."""
         return cls(
             status=AnnouncementStatus(value["status"]),
             attempts=int(value.get("attempts", 0)),
@@ -30,6 +35,7 @@ class StateEntry:
         )
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize the entry to JSON-compatible values."""
         return {
             "status": self.status.value,
             "attempts": self.attempts,
@@ -40,11 +46,15 @@ class StateEntry:
 
 
 class StateStore:
+    """Maintain announcement state in an atomically updated JSON file."""
+
     def __init__(self, path: Path) -> None:
+        """Initialize the store from a JSON state file."""
         self.path = path
         self._entries = self._read()
 
     def _read(self) -> dict[str, StateEntry]:
+        """Read valid entries from disk, returning an empty store on failure."""
         try:
             raw = json.loads(self.path.read_text(encoding="utf-8"))
             return {key: StateEntry.from_dict(value) for key, value in raw.items()}
@@ -52,6 +62,7 @@ class StateStore:
             return {}
 
     def get(self, item: ScheduledAnnouncement) -> StateEntry | None:
+        """Return the stored entry for an announcement, if present."""
         return self._entries.get(item.key)
 
     def set(
@@ -64,6 +75,7 @@ class StateStore:
         public_path: Path | None = None,
         increment_attempts: bool = False,
     ) -> StateEntry:
+        """Update and persist an announcement's status and metadata."""
         previous = self.get(item)
         attempts = (previous.attempts if previous else 0) + (1 if increment_attempts else 0)
         entry = StateEntry(
@@ -78,9 +90,11 @@ class StateStore:
         return entry
 
     def entries(self) -> dict[str, StateEntry]:
+        """Return a shallow copy of all stored entries."""
         return dict(self._entries)
 
     def expire_before(self, cutoff: datetime) -> None:
+        """Mark unfinished announcements before ``cutoff`` as expired."""
         changed = False
         for key, entry in tuple(self._entries.items()):
             try:
@@ -100,6 +114,7 @@ class StateStore:
             self._write()
 
     def _write(self) -> None:
+        """Persist all entries using an atomic file replacement."""
         self.path.parent.mkdir(parents=True, exist_ok=True)
         fd, temporary_name = tempfile.mkstemp(prefix=".announcements-", suffix=".tmp", dir=self.path.parent)
         temporary = Path(temporary_name)

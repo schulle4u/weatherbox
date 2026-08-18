@@ -1,3 +1,5 @@
+"""Determine which configured announcements are ready for generation."""
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta
@@ -9,11 +11,15 @@ from weatherbox.state import StateStore
 
 
 class Scheduler:
+    """Select due announcements according to preparation and retry settings."""
+
     def __init__(self, settings: SchedulerSettings, state: StateStore) -> None:
+        """Initialize the scheduler with its policy and persistent state."""
         self.settings = settings
         self.state = state
 
     def due(self, locations: tuple[Location, ...], now: datetime) -> tuple[ScheduledAnnouncement, ...]:
+        """Return announcements due within the configured preparation window."""
         due: list[ScheduledAnnouncement] = []
         horizon = timedelta(minutes=self.settings.preparation_minutes)
         for location in locations:
@@ -32,6 +38,7 @@ class Scheduler:
         return tuple(sorted(due, key=lambda item: (item.playback_at, item.location.id, item.kind.value)))
 
     def _may_attempt(self, item: ScheduledAnnouncement, now: datetime) -> bool:
+        """Return whether state and retry policy permit another attempt."""
         entry = self.state.get(item)
         if entry is None:
             return True
@@ -46,6 +53,7 @@ class Scheduler:
 
 
 def next_playback(now: datetime, kind: AnnouncementKind) -> datetime:
+    """Return the next half-hour or full-hour playback time at or after ``now``."""
     if kind is AnnouncementKind.FULL_HOUR:
         candidate = now.replace(minute=0, second=0, microsecond=0)
         if now > candidate:
@@ -55,4 +63,3 @@ def next_playback(now: datetime, kind: AnnouncementKind) -> datetime:
     if now > candidate:
         candidate += timedelta(hours=1)
     return candidate
-

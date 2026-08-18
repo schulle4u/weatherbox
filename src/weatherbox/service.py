@@ -1,3 +1,5 @@
+"""Coordinate weather retrieval, speech generation, and asset publication."""
+
 from __future__ import annotations
 
 import logging
@@ -33,6 +35,8 @@ LOG = logging.getLogger(__name__)
 
 
 class WeatherboxService:
+    """Orchestrate the complete weather announcement workflow."""
+
     def __init__(
         self,
         config: Config,
@@ -42,6 +46,7 @@ class WeatherboxService:
         audio_pipeline: AudioPipeline | None = None,
         now_fn=None,
     ) -> None:
+        """Initialize services, using injected adapters where provided."""
         self.config = config
         self.now_fn = now_fn or (lambda: datetime.now().astimezone())
         self.weather_provider = weather_provider or OpenMeteoProvider(
@@ -60,6 +65,7 @@ class WeatherboxService:
         self.scheduler = Scheduler(config.scheduler, self.state)
 
     def update_weather(self, locations: Iterable[Location] | None = None) -> dict[str, bool]:
+        """Refresh weather caches and report success for each location."""
         results: dict[str, bool] = {}
         for location in locations or self.config.enabled_locations:
             LOG.info("Weather update started", extra={"location_id": location.id})
@@ -74,6 +80,7 @@ class WeatherboxService:
         return results
 
     def get_weather(self, location: Location, playback_at: datetime) -> WeatherData:
+        """Return a suitable forecast, refreshing or falling back to cache as needed."""
         now = self.now_fn()
         cached = self.weather_cache.load(location.id)
         update_due = not cached or not self.weather_cache.is_fresh(
@@ -109,6 +116,7 @@ class WeatherboxService:
         return forecast
 
     def generate(self, item: ScheduledAnnouncement, *, track_state: bool = True) -> AudioAsset:
+        """Generate, validate, and publish one scheduled announcement."""
         now = self.now_fn()
         if track_state:
             self.state.set(
@@ -173,6 +181,7 @@ class WeatherboxService:
             raise WeatherboxError(str(exc)) from exc
 
     def run_due(self) -> dict[str, str]:
+        """Generate all currently due announcements and return per-item results."""
         now = self.now_fn()
         due = self.scheduler.due(self.config.enabled_locations, now)
         results: dict[str, str] = {}
@@ -189,6 +198,7 @@ class WeatherboxService:
         return results
 
     def _tts_for_language(self, language: str) -> FallbackTTSProvider:
+        """Return the injected or cached TTS provider for a language."""
         if self._injected_tts_provider is not None:
             return self._injected_tts_provider
         if language not in self._tts_providers:
@@ -201,6 +211,7 @@ class WeatherboxService:
         kinds: Iterable[AnnouncementKind],
         at: datetime | None = None,
     ) -> tuple[ScheduledAnnouncement, ...]:
+        """Build scheduled items for a manual generation request."""
         now = self.now_fn()
         items: list[ScheduledAnnouncement] = []
         for location in locations:
@@ -211,6 +222,7 @@ class WeatherboxService:
         return tuple(items)
 
     def generate_many(self, items: Iterable[ScheduledAnnouncement]) -> dict[str, str]:
+        """Generate multiple announcements and collect paths or error messages."""
         results: dict[str, str] = {}
         for item in items:
             try:
@@ -224,6 +236,7 @@ class WeatherboxService:
         return results
 
     def status(self) -> dict:
+        """Return a summary of cache health, configuration, and recent state."""
         now = self.now_fn()
         caches = {}
         for location in self.config.enabled_locations:

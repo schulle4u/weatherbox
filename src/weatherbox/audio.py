@@ -1,3 +1,5 @@
+"""Convert synthesized speech to validated, normalized MP3 assets."""
+
 from __future__ import annotations
 
 import json
@@ -9,10 +11,14 @@ from weatherbox.errors import AudioProcessingError
 
 
 class AudioPipeline:
+    """Process speech and optional jingles with FFmpeg and FFprobe."""
+
     def __init__(self, settings: AudioSettings) -> None:
+        """Initialize the pipeline with audio processing settings."""
         self.settings = settings
 
     def process(self, speech_path: Path, output_path: Path, jingle_path: Path | None = None) -> None:
+        """Create and validate an MP3 from speech and an optional leading jingle."""
         if jingle_path is not None and not jingle_path.is_file():
             raise AudioProcessingError(f"Jingle fehlt: {jingle_path}")
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -43,12 +49,14 @@ class AudioPipeline:
         self.validate(output_path)
 
     def _loudness_suffix(self) -> str:
+        """Return the configured FFmpeg loudness-normalization filter suffix."""
         if not self.settings.loudness.enabled:
             return ""
         value = self.settings.loudness
         return f",loudnorm=I={value.target_lufs}:LRA={value.loudness_range}:TP={value.true_peak_db}"
 
     def validate(self, path: Path) -> None:
+        """Verify that a file is a non-empty MP3 with the configured format."""
         if not path.is_file() or path.stat().st_size == 0:
             raise AudioProcessingError("MP3-Datei fehlt oder ist leer")
         command = [
@@ -77,6 +85,7 @@ class AudioPipeline:
 
     @staticmethod
     def _run(command: list[str], label: str, *, return_output: bool = False) -> str:
+        """Run an audio command and translate process failures to domain errors."""
         try:
             result = subprocess.run(command, capture_output=True, text=True, check=False, timeout=180)
         except (OSError, subprocess.TimeoutExpired) as exc:
@@ -85,4 +94,3 @@ class AudioPipeline:
             details = (result.stderr or result.stdout).strip()[-2000:]
             raise AudioProcessingError(f"{label} fehlgeschlagen: {details}")
         return result.stdout if return_output else ""
-

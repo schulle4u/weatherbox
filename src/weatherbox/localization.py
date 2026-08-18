@@ -1,3 +1,5 @@
+"""Load language resources and format values for spoken announcements."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -15,6 +17,8 @@ from weatherbox.errors import ConfigurationError
 
 @dataclass(frozen=True, slots=True)
 class NumberRules:
+    """Language-specific rules for spelling integers and decimals."""
+
     ones: dict[int, str]
     tens: dict[int, str]
     compound_order: str
@@ -27,6 +31,8 @@ class NumberRules:
 
 @dataclass(frozen=True, slots=True)
 class TimeRules:
+    """Language-specific patterns for spoken times."""
+
     exact_hour: str
     with_minutes: str
     minute_prefix_under_ten: str
@@ -35,12 +41,16 @@ class TimeRules:
 
 @dataclass(frozen=True, slots=True)
 class DateRules:
+    """Language-specific date pattern and month names."""
+
     pattern: str
     months: tuple[str, ...]
 
 
 @dataclass(frozen=True, slots=True)
 class LanguageFormatter:
+    """Format numbers, dates, times, and weather terms for one language."""
+
     code: str
     numbers: NumberRules
     time: TimeRules
@@ -50,6 +60,7 @@ class LanguageFormatter:
     wind_directions: tuple[str, ...]
 
     def format_number(self, number: int, *, context: str | None = None) -> str:
+        """Spell an integer from 0 through 59, applying contextual overrides."""
         if not 0 <= number <= 59:
             raise ValueError("Only numbers from 0 to 59 are supported")
         if context and number in self.numbers.context_overrides.get(context, {}):
@@ -69,6 +80,7 @@ class LanguageFormatter:
         return f"{tens_word}{self.numbers.compound_separator}{ones_word}"
 
     def format_time(self, value: datetime) -> str:
+        """Format a time according to the language's spoken-time rules."""
         hour = self.format_hour(value.hour)
         if value.minute == 0:
             return self.time.exact_hour.format(hour=hour)
@@ -78,12 +90,14 @@ class LanguageFormatter:
         return self.time.with_minutes.format(hour=hour, minute=minute)
 
     def format_hour(self, hour: int) -> str:
+        """Spell an hour using the configured 12- or 24-hour mode."""
         display_hour = hour
         if self.time.hour_mode == 12:
             display_hour = hour % 12 or 12
         return self.format_number(display_hour, context="hour")
 
     def format_date(self, value: datetime) -> str:
+        """Format a date using localized month names."""
         return self.date.pattern.format(
             day=value.day,
             month=self.date.months[value.month - 1],
@@ -91,6 +105,7 @@ class LanguageFormatter:
         )
 
     def format_decimal(self, value: float | int | None) -> str | None:
+        """Format an optional number with at most one fractional digit."""
         if value is None:
             return None
         rounded = round(float(value), 1)
@@ -99,18 +114,23 @@ class LanguageFormatter:
         return f"{rounded:.1f}".replace(".", self.numbers.decimal_separator)
 
     def weather_description(self, code: int | None) -> str | None:
+        """Return the localized description of a WMO weather code."""
         if code is None:
             return None
         return self.weather_descriptions.get(code, self.unknown_weather.format(code=code))
 
     def wind_direction(self, degrees: float | None) -> str | None:
+        """Return the localized compass direction nearest to an angle."""
         if degrees is None:
             return None
         return self.wind_directions[int((degrees % 360) / 22.5 + 0.5) % 16]
 
 
 class LanguageCatalog:
+    """Registry of built-in and optionally user-defined languages."""
+
     def __init__(self, custom_directory: Path | None = None) -> None:
+        """Load built-in languages and optional custom YAML definitions."""
         self._languages: dict[str, LanguageFormatter] = {}
         builtin_directory = resources.files("weatherbox").joinpath("lang")
         self._load_resources(item for item in builtin_directory.iterdir() if item.name.endswith(".yaml"))
@@ -121,9 +141,11 @@ class LanguageCatalog:
 
     @property
     def available(self) -> tuple[str, ...]:
+        """Return the available language codes in lexical order."""
         return tuple(sorted(self._languages))
 
     def get(self, code: str) -> LanguageFormatter:
+        """Return the formatter for ``code`` or raise a configuration error."""
         try:
             return self._languages[code]
         except KeyError as exc:
@@ -133,6 +155,7 @@ class LanguageCatalog:
             ) from exc
 
     def _load_resources(self, files: Iterable[Any]) -> None:
+        """Load language definitions from an iterable of text resources."""
         for source in files:
             try:
                 raw = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
@@ -143,6 +166,7 @@ class LanguageCatalog:
 
 
 def _parse_language(raw: Any, source: str) -> LanguageFormatter:
+    """Validate a raw language mapping and build its formatter."""
     if not isinstance(raw, dict):
         raise ConfigurationError(f"Sprachdatei muss ein YAML-Objekt sein: {source}")
     try:
@@ -216,6 +240,7 @@ def _parse_language(raw: Any, source: str) -> LanguageFormatter:
 
 
 def _required_mapping(parent: dict[str, Any], key: str, source: str) -> dict[str, Any]:
+    """Return a required mapping from a language definition."""
     value = parent[key]
     if not isinstance(value, dict):
         raise ConfigurationError(f"'{key}' muss ein Objekt sein: {source}")
@@ -225,6 +250,7 @@ def _required_mapping(parent: dict[str, Any], key: str, source: str) -> dict[str
 def _integer_words(
     parent: dict[str, Any], key: str, source: str, required: Iterable[int]
 ) -> dict[int, str]:
+    """Parse an integer-word mapping and verify its required keys."""
     values = _optional_integer_words(parent[key], source)
     missing = [number for number in required if number not in values]
     if missing:
@@ -233,6 +259,7 @@ def _integer_words(
 
 
 def _optional_integer_words(raw: Any, source: str) -> dict[int, str]:
+    """Convert a mapping's keys to integers and its values to strings."""
     if not isinstance(raw, dict):
         raise ConfigurationError(f"Zahlenwörter müssen ein Objekt sein: {source}")
     try:
@@ -242,6 +269,7 @@ def _optional_integer_words(raw: Any, source: str) -> dict[int, str]:
 
 
 def _validated_pattern(raw: Any, allowed: set[str], source: str) -> str:
+    """Validate that a format pattern uses exactly the allowed fields."""
     pattern = str(raw)
     try:
         fields = {field for _, field, _, _ in Formatter().parse(pattern) if field is not None}
@@ -256,4 +284,5 @@ def _validated_pattern(raw: Any, allowed: set[str], source: str) -> str:
 
 @lru_cache(maxsize=8)
 def builtin_language(code: str) -> LanguageFormatter:
+    """Return a cached formatter loaded from built-in language resources."""
     return LanguageCatalog().get(code)

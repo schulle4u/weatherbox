@@ -1,3 +1,5 @@
+"""Command-line interface for Weatherbox operations."""
+
 from __future__ import annotations
 
 import argparse
@@ -14,6 +16,7 @@ from weatherbox.service import WeatherboxService
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Build the command-line argument parser."""
     parser = argparse.ArgumentParser(prog="wb-announcer", description="Weatherbox audio asset generator")
     parser.add_argument("-c", "--config", type=Path, default=Path("config.yaml"))
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -42,6 +45,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _parse_time(value: str | None) -> datetime | None:
+    """Parse an optional ISO-8601 timestamp and ensure it is timezone-aware."""
     if value is None:
         return None
     parsed = datetime.fromisoformat(value)
@@ -51,6 +55,7 @@ def _parse_time(value: str | None) -> datetime | None:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Run the requested command and return its process exit status."""
     args = build_parser().parse_args(argv)
     try:
         config = load_config(args.config)

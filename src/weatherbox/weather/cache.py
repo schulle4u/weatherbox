@@ -1,3 +1,5 @@
+"""Persist weather forecasts in a per-location JSON cache."""
+
 from __future__ import annotations
 
 import json
@@ -10,13 +12,18 @@ from weatherbox.models import ForecastBundle, WeatherData
 
 
 class WeatherCache:
+    """Store and retrieve forecast bundles using atomic file replacement."""
+
     def __init__(self, directory: Path) -> None:
+        """Initialize the cache with its storage directory."""
         self.directory = directory
 
     def path_for(self, location_id: str) -> Path:
+        """Return the cache file path for a location identifier."""
         return self.directory / f"{location_id}.json"
 
     def save(self, location_id: str, bundle: ForecastBundle) -> None:
+        """Atomically save a forecast bundle for a location."""
         self.directory.mkdir(parents=True, exist_ok=True)
         payload = {
             "fetched_at": bundle.fetched_at.isoformat(),
@@ -34,6 +41,7 @@ class WeatherCache:
             temporary.unlink(missing_ok=True)
 
     def load(self, location_id: str) -> ForecastBundle | None:
+        """Load a valid timezone-aware forecast bundle, if available."""
         try:
             payload = json.loads(self.path_for(location_id).read_text(encoding="utf-8"))
             fetched_at = datetime.fromisoformat(payload["fetched_at"])
@@ -46,6 +54,6 @@ class WeatherCache:
 
     @staticmethod
     def is_fresh(bundle: ForecastBundle, now: datetime, max_age_minutes: int) -> bool:
+        """Return whether a bundle's age is non-negative and within the limit."""
         age = now - bundle.fetched_at.astimezone(now.tzinfo)
         return timedelta(0) <= age <= timedelta(minutes=max_age_minutes)
-
