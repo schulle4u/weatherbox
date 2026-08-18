@@ -1,0 +1,83 @@
+application:
+  log_level: INFO
+  json_logs: false
+
+weather:
+  endpoint: https://api.open-meteo.com/v1/forecast
+  update_interval_minutes: 30
+  max_cache_age_minutes: 60
+  request_timeout_seconds: 15
+
+scheduler:
+  preparation_minutes: 10
+  retry:
+    interval_seconds: 60
+    max_attempts: 5
+
+tts:
+  provider: piper
+  fallback_provider: espeak-ng
+  piper:
+    executable: piper
+    model: models/de_DE-kerstin-low.onnx
+  espeak-ng:
+    executable: espeak-ng
+    voice: de
+    speed: 155
+
+audio:
+  ffmpeg: ffmpeg
+  ffprobe: ffprobe
+  loudness:
+    enabled: true
+    target_lufs: -16
+    true_peak_db: -1.5
+    loudness_range: 11
+  output:
+    format: mp3
+    sample_rate: 48000
+    channels: 2
+    bitrate: 192k
+  jingles:
+    # Relative Pfade werden relativ zu dieser Konfigurationsdatei aufgelöst.
+    half_hour: assets/jingle-short.wav
+    full_hour: assets/jingle-full.wav
+
+output:
+  cache_dir: var/cache
+  generated_dir: var/generated
+  public_dir: var/public
+  state_dir: var/state
+
+# Ansagen können je Standort vollständig überschrieben werden.
+announcements:
+  half_hour:
+    enabled: true
+    template: >
+      Es ist {time}. Hier ist das aktuelle Wetter für {location}.
+      Die Temperatur beträgt {temperature} Grad.
+      Der Himmel ist {weather_description}.
+  full_hour:
+    enabled: true
+    template: >
+      Es ist {time}. Hier sind die Wetterdaten für {location}.
+      Die Temperatur beträgt {temperature} Grad, gefühlt {apparent_temperature} Grad.
+      Die Luftfeuchtigkeit beträgt {humidity} Prozent.
+      Der Luftdruck liegt bei {pressure} Hektopascal.
+      Der Wind kommt aus {wind_direction} mit {wind_speed} Kilometern pro Stunde.
+
+locations:
+  wittstock:
+    name: Wittstock
+    latitude: 53.16
+    longitude: 12.48
+    timezone: Europe/Berlin
+    enabled: true
+    # Beispiel für standortspezifische Überschreibungen:
+    # announcements:
+    #   half_hour:
+    #     template: "Es ist {time} in {location}. Die Temperatur: {temperature} Grad."
+    # audio:
+    #   jingles:
+    #     half_hour: assets/wittstock-short.wav
+

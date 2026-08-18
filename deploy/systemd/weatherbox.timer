@@ -1,0 +1,12 @@
+[Unit]
+Description=Run Weatherbox scheduler every minute
+
+[Timer]
+OnCalendar=*-*-* *:*:00
+Persistent=true
+AccuracySec=1s
+Unit=weatherbox.service
+
+[Install]
+WantedBy=timers.target
+

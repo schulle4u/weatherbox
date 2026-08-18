@@ -1,0 +1,12 @@
+audio.example.org {
+	root * /var/lib/weatherbox/public
+
+	@audio path *.mp3
+	header @audio {
+		Content-Type audio/mpeg
+		Cache-Control "public, max-age=60, must-revalidate"
+	}
+
+	file_server
+}
+

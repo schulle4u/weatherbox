@@ -1,0 +1,17 @@
+[Unit]
+Description=Weatherbox scheduled weather announcement generator
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=weatherbox
+Group=weatherbox
+WorkingDirectory=/opt/weatherbox
+ExecStart=/opt/weatherbox/.venv/bin/wb-announcer --config /etc/weatherbox/config.yaml run
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/weatherbox
+
