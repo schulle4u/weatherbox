@@ -9,6 +9,7 @@ Während der Wiedergabe besteht keine Abhängigkeit zum TTS- oder Wetterdienst.
 
 - beliebig viele Standorte ausschließlich über YAML konfigurierbar
 - halbstündliche und stündliche Ansagen mit standortspezifischen Templates
+- YAML-basierte deutsche und englische Sprachausgabe je Standort
 - Forecast für den geplanten Wiedergabezeitpunkt über Open-Meteo
 - atomarer JSON-Wettercache mit konfigurierbarem Höchstalter
 - Piper als primärer TTS-Provider, optionaler Fallback auf espeak-ng
@@ -44,10 +45,10 @@ Derzeit sind folgende Variablen implementiert:
 
 | Variable | Inhalt und Ausgabeformat |
 | --- | --- |
-| `{time}` | Geplante Wiedergabezeit in deutschen Wörtern, zum Beispiel `vierzehn Uhr dreißig` |
-| `{hour}` | Stunde der geplanten Wiedergabe in deutschen Wörtern, zum Beispiel `vierzehn` |
+| `{time}` | Geplante Wiedergabezeit in Wörtern der Standortsprache, zum Beispiel `vierzehn Uhr dreißig` |
+| `{hour}` | Stunde der geplanten Wiedergabe in Wörtern der Standortsprache, zum Beispiel `vierzehn` |
 | `{minute}` | Minute der geplanten Wiedergabe als Zahl, zum Beispiel `30` |
-| `{date}` | Datum der geplanten Wiedergabe, zum Beispiel `18. August 2026` |
+| `{date}` | Lokalisiertes Datum der geplanten Wiedergabe, zum Beispiel `18. August 2026` |
 | `{location}` | Konfigurierter Anzeigename des Standorts |
 | `{latitude}` | Breitengrad des Standorts |
 | `{longitude}` | Längengrad des Standorts |
@@ -56,24 +57,97 @@ Derzeit sind folgende Variablen implementiert:
 | `{dew_point}` | Vorhergesagter Taupunkt in Grad Celsius |
 | `{humidity}` | Relative Luftfeuchtigkeit in Prozent |
 | `{pressure}` | Luftdruck an der Oberfläche in Hektopascal |
-| `{weather_description}` | Deutsche Beschreibung des Open-Meteo-Wettercodes, zum Beispiel `teilweise bewölkt` |
+| `{weather_description}` | Lokalisierte Beschreibung des Open-Meteo-Wettercodes, zum Beispiel `teilweise bewölkt` |
 | `{weather_code}` | Numerischer Open-Meteo-Wettercode |
 | `{cloud_cover}` | Bewölkungsgrad in Prozent |
 | `{wind_speed}` | Windgeschwindigkeit in Kilometern pro Stunde |
-| `{wind_direction}` | Windrichtung als deutsche Himmelsrichtung, zum Beispiel `Südwesten` |
+| `{wind_direction}` | Windrichtung als lokalisierte Himmelsrichtung, zum Beispiel `Südwesten` |
 | `{wind_direction_degrees}` | Windrichtung in Grad |
 | `{wind_gusts}` | Geschwindigkeit der Windböen in Kilometern pro Stunde |
 | `{precipitation}` | Vorhergesagte Niederschlagsmenge in Millimetern |
 | `{precipitation_probability}` | Niederschlagswahrscheinlichkeit in Prozent |
-| `{sunrise}` | Sonnenaufgang in deutschen Zeitwörtern, zum Beispiel `fünf Uhr achtundvierzig` |
-| `{sunset}` | Sonnenuntergang in deutschen Zeitwörtern |
-| `{forecast_time}` | Zeitpunkt, für den die verwendeten Wetterdaten gelten, in deutschen Zeitwörtern |
+| `{sunrise}` | Sonnenaufgang in den Zeitwörtern der Standortsprache, zum Beispiel `fünf Uhr achtundvierzig` |
+| `{sunset}` | Sonnenuntergang in den Zeitwörtern der Standortsprache |
+| `{forecast_time}` | Zeitpunkt der verwendeten Wetterdaten in den Zeitwörtern der Standortsprache |
 
 Numerische Werte werden auf eine Nachkommastelle gerundet, überflüssige
-Nachkommastellen werden entfernt und das Dezimalkomma wird deutsch formatiert.
+Nachkommastellen werden entfernt und das Dezimaltrennzeichen wird lokalisiert.
 Eine unbekannte Variable, eine Formatangabe wie `{temperature:.1f}` oder ein im
 konkreten Forecast nicht verfügbarer verwendeter Wert bricht die Generierung
 kontrolliert ab. Das bisher veröffentlichte Audio-Asset bleibt dabei erhalten.
+
+## Sprachen und Aussprachewörterbücher
+
+Weatherbox liefert die Sprachen Deutsch (`de`) und Englisch (`en`) mit. Die
+zugehörigen YAML-Wörterbücher liegen unter `src/weatherbox/lang/`. Sie enthalten:
+
+- Zahlen von null bis neunzehn und die Zehner bis fünfzig
+- Regeln und Ausnahmen für zusammengesetzte Zahlen
+- kontextabhängige Formen wie `ein Uhr` gegenüber `eins`
+- Zeit- und Datumsmuster sowie Monatsnamen
+- Dezimaltrennzeichen
+- Beschreibungen der Open-Meteo-Wettercodes
+- 16 Windrichtungen
+
+Die Sprache kann für jeden Standort separat gewählt werden:
+
+```yaml
+localization:
+  default_language: de
+  # Optional: eigene vollständige YAML-Sprachdateien aus diesem Verzeichnis laden
+  directory: lang
+
+locations:
+  wittstock:
+    name: Wittstock
+    latitude: 53.16
+    longitude: 12.48
+    timezone: Europe/Berlin
+    language: de
+
+  london:
+    name: London
+    latitude: 51.51
+    longitude: -0.13
+    timezone: Europe/London
+    language: en
+    announcements:
+      full_hour:
+        template: >
+          It is {time} in {location}. The temperature is {temperature} degrees.
+          Conditions are {weather_description}.
+```
+
+Eigene Sprachdateien müssen das vollständige Schema einer eingebauten Datei
+besitzen. Eine Datei im konfigurierten `localization.directory` überschreibt eine
+eingebaute Sprache mit demselben `code`; neue Codes ergänzen den Katalog. Über
+`numbers.overrides` können unregelmäßige Zahlen vollständig überschrieben werden.
+`time.hour_mode` unterstützt eine 12- oder 24-Stunden-Ausgabe. Ungültige oder
+unvollständige Sprachdateien werden bereits beim Programmstart abgelehnt.
+
+Templates werden bewusst nicht automatisch übersetzt. Für einen anderssprachigen
+Standort muss daher ein passendes Standort-Template konfiguriert werden.
+
+Damit Piper beziehungsweise espeak-ng die richtige Stimme verwenden, können die
+TTS-Einstellungen ebenfalls je Sprache überschrieben werden:
+
+```yaml
+tts:
+  provider: piper
+  fallback_provider: espeak-ng
+  piper:
+    model: models/de_DE-kerstin-low.onnx
+  espeak-ng:
+    voice: de
+  languages:
+    en:
+      piper:
+        model: models/en_GB-alba-medium.onnx
+      espeak-ng:
+        voice: en-gb
+```
+
+Fehlt eine sprachabhängige TTS-Einstellung, wird der globale Wert verwendet.
 
 ## CLI
 

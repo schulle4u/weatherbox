@@ -7,6 +7,7 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from weatherbox.models import AnnouncementKind, AnnouncementSpec, Location, WeatherData
+from weatherbox.localization import builtin_language
 
 
 @pytest.fixture
@@ -59,6 +60,11 @@ def weather(now: datetime) -> WeatherData:
     )
 
 
+@pytest.fixture
+def german_formatter():
+    return builtin_language("de")
+
+
 def write_test_config(path: Path, locations: str = "") -> Path:
     if not locations:
         locations = """
@@ -107,4 +113,3 @@ locations:
 """
     path.write_text(text, encoding="utf-8")
     return path
-

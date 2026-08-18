@@ -22,7 +22,11 @@ class FakeWeatherProvider:
 class FakeTTS:
     last_provider = "fake"
 
+    def __init__(self):
+        self.texts = []
+
     def synthesize(self, text: str, output_path: Path) -> None:
+        self.texts.append(text)
         output_path.write_bytes(b"RIFF" + b"0" * 44)
 
 
@@ -158,3 +162,33 @@ def test_one_location_failure_does_not_block_another(tmp_path, now, weather):
     results = service.generate_many(items)
     assert next(value for key, value in results.items() if key.startswith("broken:")).startswith("ERROR:")
     assert not next(value for key, value in results.items() if key.startswith("working:")).startswith("ERROR:")
+
+
+def test_location_language_controls_generated_announcement(tmp_path, now, weather):
+    locations = """
+  london:
+    name: London
+    latitude: 51.51
+    longitude: -0.13
+    timezone: Europe/London
+    language: en
+    announcements:
+      full_hour:
+        template: "It is {time} in {location}. It is {weather_description} and {temperature} degrees."
+"""
+    config = load_config(write_test_config(tmp_path / "config.yaml", locations))
+    tts = FakeTTS()
+    service = WeatherboxService(
+        config,
+        weather_provider=FakeWeatherProvider(now, weather),
+        tts_provider=tts,
+        audio_pipeline=FakeAudio(),
+        now_fn=lambda: now,
+    )
+    item = service.manual_items(
+        config.enabled_locations, (AnnouncementKind.FULL_HOUR,)
+    )[0]
+    service.generate(item)
+    assert tts.texts == [
+        "It is thirteen o'clock in London. It is partly cloudy and 18.2 degrees."
+    ]

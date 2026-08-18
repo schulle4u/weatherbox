@@ -97,6 +97,7 @@ class Location:
     enabled: bool
     announcements: dict[AnnouncementKind, AnnouncementSpec]
     jingles: dict[AnnouncementKind, Path | None] = field(default_factory=dict)
+    language: str = "de"
 
 
 @dataclass(frozen=True, slots=True)
@@ -117,4 +118,3 @@ class AudioAsset:
     playback_at: datetime
     versioned_path: Path
     public_path: Path
-

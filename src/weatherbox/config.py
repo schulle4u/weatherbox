@@ -9,6 +9,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import yaml
 
 from weatherbox.errors import ConfigurationError
+from weatherbox.localization import LanguageCatalog
 from weatherbox.models import AnnouncementKind, AnnouncementSpec, Location
 
 
@@ -16,6 +17,12 @@ from weatherbox.models import AnnouncementKind, AnnouncementSpec, Location
 class ApplicationSettings:
     log_level: str
     json_logs: bool
+
+
+@dataclass(frozen=True, slots=True)
+class LocalizationSettings:
+    default_language: str
+    directory: Path | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -57,6 +64,13 @@ class TTSSettings:
     fallback_provider: str | None
     piper: PiperSettings
     espeak: EspeakSettings
+    languages: dict[str, "TTSLanguageSettings"]
+
+
+@dataclass(frozen=True, slots=True)
+class TTSLanguageSettings:
+    piper_model: Path | None
+    espeak_voice: str | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -94,6 +108,7 @@ class OutputSettings:
 class Config:
     source_path: Path
     application: ApplicationSettings
+    localization: LocalizationSettings
     weather: WeatherSettings
     scheduler: SchedulerSettings
     tts: TTSSettings
@@ -142,6 +157,7 @@ def load_config(path: str | Path) -> Config:
 
     base = source.parent
     app = _mapping(raw, "application")
+    localization = _mapping(raw, "localization")
     weather = _mapping(raw, "weather")
     scheduler = _mapping(raw, "scheduler")
     retry = _mapping(scheduler, "retry")
@@ -163,6 +179,14 @@ def load_config(path: str | Path) -> Config:
     locations_raw = _mapping(raw, "locations")
     if not locations_raw:
         raise ConfigurationError("Mindestens ein Standort unter 'locations' ist erforderlich")
+
+    default_language = str(localization.get("default_language", "de"))
+    language_directory_value = localization.get("directory")
+    language_directory = (
+        _resolve(base, language_directory_value) if language_directory_value else None
+    )
+    language_catalog = LanguageCatalog(language_directory)
+    language_catalog.get(default_language)
 
     locations: dict[str, Location] = {}
     for location_id, location_raw in locations_raw.items():
@@ -187,6 +211,8 @@ def load_config(path: str | Path) -> Config:
             raise ConfigurationError(
                 f"Standort '{location_id}': unbekannte Zeitzone '{timezone}'"
             ) from exc
+        language = str(location_raw.get("language", default_language))
+        language_catalog.get(language)
 
         location_announcements = _mapping(location_raw, "announcements")
         announcement_specs: dict[AnnouncementKind, AnnouncementSpec] = {}
@@ -218,6 +244,7 @@ def load_config(path: str | Path) -> Config:
             enabled=bool(location_raw.get("enabled", True)),
             announcements=announcement_specs,
             jingles=jingles,
+            language=language,
         )
 
     provider = str(tts.get("provider", "piper"))
@@ -225,6 +252,21 @@ def load_config(path: str | Path) -> Config:
     valid_providers = {"piper", "espeak-ng"}
     if provider not in valid_providers or (fallback is not None and fallback not in valid_providers):
         raise ConfigurationError("TTS-Provider muss 'piper' oder 'espeak-ng' sein")
+
+    tts_languages_raw = _mapping(tts, "languages")
+    tts_languages: dict[str, TTSLanguageSettings] = {}
+    for language_code, override_raw in tts_languages_raw.items():
+        language_catalog.get(str(language_code))
+        if not isinstance(override_raw, dict):
+            raise ConfigurationError(f"tts.languages.{language_code} muss ein Objekt sein")
+        piper_override = _mapping(override_raw, "piper")
+        espeak_override = _mapping(override_raw, "espeak-ng")
+        model_value = piper_override.get("model")
+        voice_value = espeak_override.get("voice")
+        tts_languages[str(language_code)] = TTSLanguageSettings(
+            piper_model=_resolve(base, model_value) if model_value else None,
+            espeak_voice=str(voice_value) if voice_value else None,
+        )
 
     if str(audio_output.get("format", "mp3")).lower() != "mp3":
         raise ConfigurationError("'audio.output.format' muss 'mp3' sein")
@@ -237,6 +279,10 @@ def load_config(path: str | Path) -> Config:
         application=ApplicationSettings(
             log_level=str(app.get("log_level", "INFO")).upper(),
             json_logs=bool(app.get("json_logs", False)),
+        ),
+        localization=LocalizationSettings(
+            default_language=default_language,
+            directory=language_directory,
         ),
         weather=WeatherSettings(
             update_interval_minutes=_positive(weather.get("update_interval_minutes", 30), "weather.update_interval_minutes"),
@@ -263,6 +309,7 @@ def load_config(path: str | Path) -> Config:
                 voice=str(espeak.get("voice", "de")),
                 speed=_positive(espeak.get("speed", 155), "tts.espeak-ng.speed"),
             ),
+            languages=tts_languages,
         ),
         audio=AudioSettings(
             ffmpeg=str(audio.get("ffmpeg", "ffmpeg")),

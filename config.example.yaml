@@ -2,6 +2,12 @@ application:
   log_level: INFO
   json_logs: false
 
+localization:
+  default_language: de
+  # Optionales Verzeichnis mit eigenen oder überschriebenen Sprachdateien.
+  # Relative Pfade werden relativ zu dieser Konfigurationsdatei aufgelöst.
+  # directory: lang
+
 weather:
   endpoint: https://api.open-meteo.com/v1/forecast
   update_interval_minutes: 30
@@ -24,6 +30,14 @@ tts:
     executable: espeak-ng
     voice: de
     speed: 155
+  # Optionale Modelle und Stimmen je Sprache. Nicht angegebene Werte verwenden
+  # die obigen Standardeinstellungen.
+  # languages:
+  #   en:
+  #     piper:
+  #       model: models/en_GB-alba-medium.onnx
+  #     espeak-ng:
+  #       voice: en-gb
 
 audio:
   ffmpeg: ffmpeg
@@ -72,6 +86,7 @@ locations:
     latitude: 53.16
     longitude: 12.48
     timezone: Europe/Berlin
+    language: de
     enabled: true
     # Beispiel für standortspezifische Überschreibungen:
     # announcements:
@@ -80,4 +95,3 @@ locations:
     # audio:
     #   jingles:
     #     half_hour: assets/wittstock-short.wav
-

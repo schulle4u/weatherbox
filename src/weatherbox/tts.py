@@ -82,10 +82,20 @@ class FallbackTTSProvider:
                 ) from fallback_error
 
 
-def create_tts_provider(settings: TTSSettings) -> FallbackTTSProvider:
+def create_tts_provider(settings: TTSSettings, language: str | None = None) -> FallbackTTSProvider:
+    override = settings.languages.get(language) if language else None
+    piper_settings = PiperSettings(
+        executable=settings.piper.executable,
+        model=override.piper_model if override and override.piper_model else settings.piper.model,
+    )
+    espeak_settings = EspeakSettings(
+        executable=settings.espeak.executable,
+        voice=override.espeak_voice if override and override.espeak_voice else settings.espeak.voice,
+        speed=settings.espeak.speed,
+    )
     providers: dict[str, TTSProvider] = {
-        "piper": PiperProvider(settings.piper),
-        "espeak-ng": EspeakProvider(settings.espeak),
+        "piper": PiperProvider(piper_settings),
+        "espeak-ng": EspeakProvider(espeak_settings),
     }
     return FallbackTTSProvider(
         primary=providers[settings.provider],
@@ -113,4 +123,3 @@ def _run(command: list[str], *, provider: str, input_text: str | None = None) ->
 def _validate_wave_output(path: Path, provider: str) -> None:
     if not path.is_file() or path.stat().st_size < 44:
         raise TTSGenerationError(f"{provider} hat keine gültige WAV-Datei erzeugt")
-

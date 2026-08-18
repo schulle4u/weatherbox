@@ -5,13 +5,7 @@ from string import Formatter
 from typing import Any
 
 from weatherbox.errors import TemplateRenderError
-from weatherbox.formatting import (
-    format_date_german,
-    format_number,
-    format_time_german,
-    weather_description,
-    wind_direction_name,
-)
+from weatherbox.localization import LanguageFormatter
 from weatherbox.models import Location, WeatherData
 
 
@@ -26,36 +20,35 @@ ALLOWED_FIELDS = frozenset(
 )
 
 
-def build_context(location: Location, playback_at: datetime, weather: WeatherData) -> dict[str, Any]:
+def build_context(
+    location: Location,
+    playback_at: datetime,
+    weather: WeatherData,
+    formatter: LanguageFormatter,
+) -> dict[str, Any]:
     context: dict[str, Any] = {
-        "time": format_time_german(playback_at),
-        "hour": german_hour(playback_at.hour),
-        "minute": format_number(playback_at.minute),
-        "date": format_date_german(playback_at),
+        "time": formatter.format_time(playback_at),
+        "hour": formatter.format_hour(playback_at.hour),
+        "minute": formatter.format_decimal(playback_at.minute),
+        "date": formatter.format_date(playback_at),
         "location": location.name,
-        "latitude": format_number(location.latitude),
-        "longitude": format_number(location.longitude),
-        "weather_description": weather_description(weather.weather_code),
+        "latitude": formatter.format_decimal(location.latitude),
+        "longitude": formatter.format_decimal(location.longitude),
+        "weather_description": formatter.weather_description(weather.weather_code),
         "weather_code": weather.weather_code,
-        "wind_direction": wind_direction_name(weather.wind_direction),
-        "wind_direction_degrees": format_number(weather.wind_direction),
-        "sunrise": format_time_german(weather.sunrise) if weather.sunrise else None,
-        "sunset": format_time_german(weather.sunset) if weather.sunset else None,
-        "forecast_time": format_time_german(weather.forecast_at),
+        "wind_direction": formatter.wind_direction(weather.wind_direction),
+        "wind_direction_degrees": formatter.format_decimal(weather.wind_direction),
+        "sunrise": formatter.format_time(weather.sunrise) if weather.sunrise else None,
+        "sunset": formatter.format_time(weather.sunset) if weather.sunset else None,
+        "forecast_time": formatter.format_time(weather.forecast_at),
     }
     for name in (
         "temperature", "apparent_temperature", "dew_point", "humidity", "pressure",
         "cloud_cover", "wind_speed", "wind_gusts", "precipitation",
         "precipitation_probability",
     ):
-        context[name] = format_number(getattr(weather, name))
+        context[name] = formatter.format_decimal(getattr(weather, name))
     return context
-
-
-def german_hour(hour: int) -> str:
-    from weatherbox.formatting import german_number
-
-    return german_number(hour, hour=True)
 
 
 def render_template(template: str, context: dict[str, Any]) -> str:
@@ -87,4 +80,3 @@ def render_template(template: str, context: dict[str, Any]) -> str:
     if not rendered:
         raise TemplateRenderError("Das gerenderte Template ist leer")
     return rendered
-

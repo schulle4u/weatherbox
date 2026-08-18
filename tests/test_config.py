@@ -4,6 +4,7 @@ from conftest import write_test_config
 from weatherbox.config import load_config
 from weatherbox.errors import ConfigurationError
 from weatherbox.models import AnnouncementKind
+from weatherbox.tts import EspeakProvider, PiperProvider, create_tts_provider
 
 
 def test_load_config_and_resolve_paths(tmp_path):
@@ -55,3 +56,28 @@ def test_unknown_timezone_is_rejected(tmp_path):
     )
     with pytest.raises(ConfigurationError, match="Zeitzone"):
         load_config(path)
+
+
+def test_location_language_and_tts_voice_can_be_overridden(tmp_path):
+    path = write_test_config(tmp_path / "config.yaml")
+    text = path.read_text(encoding="utf-8")
+    text = text.replace(
+        "  piper:\n    model: model.onnx",
+        "  piper:\n    model: model.onnx\n"
+        "  languages:\n"
+        "    en:\n"
+        "      piper:\n"
+        "        model: english.onnx\n"
+        "      espeak-ng:\n"
+        "        voice: en-gb",
+    )
+    text = text.replace("    timezone: Europe/Berlin", "    timezone: Europe/Berlin\n    language: en")
+    path.write_text(text, encoding="utf-8")
+
+    config = load_config(path)
+    assert config.locations["wittstock"].language == "en"
+    provider = create_tts_provider(config.tts, "en")
+    assert isinstance(provider.primary, PiperProvider)
+    assert provider.primary.settings.model == tmp_path / "english.onnx"
+    assert isinstance(provider.fallback, EspeakProvider)
+    assert provider.fallback.settings.voice == "en-gb"

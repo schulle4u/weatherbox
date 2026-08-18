@@ -12,6 +12,7 @@ from weatherbox.assets import AssetManager
 from weatherbox.audio import AudioPipeline
 from weatherbox.config import Config
 from weatherbox.errors import WeatherUnavailableError, WeatherboxError
+from weatherbox.localization import LanguageCatalog
 from weatherbox.models import (
     AnnouncementKind,
     AnnouncementStatus,
@@ -47,7 +48,12 @@ class WeatherboxService:
             config.weather.endpoint, config.weather.request_timeout_seconds
         )
         self.weather_cache = WeatherCache(config.output.cache_dir)
-        self.tts_provider = tts_provider or create_tts_provider(config.tts)
+        self.languages = LanguageCatalog(config.localization.directory)
+        self._injected_tts_provider = tts_provider
+        self._tts_providers: dict[str, FallbackTTSProvider] = {}
+        self.tts_provider = tts_provider or self._tts_for_language(
+            config.localization.default_language
+        )
         self.audio = audio_pipeline or AudioPipeline(config.audio)
         self.assets = AssetManager(config.output.generated_dir, config.output.public_dir)
         self.state = StateStore(config.output.state_dir / "announcements.json")
@@ -118,7 +124,8 @@ class WeatherboxService:
         )
         try:
             weather = self.get_weather(item.location, item.playback_at)
-            context = build_context(item.location, item.playback_at, weather)
+            formatter = self.languages.get(item.location.language)
+            context = build_context(item.location, item.playback_at, weather, formatter)
             text = render_template(item.location.announcements[item.kind].template, context)
             LOG.info("Template rendered", extra={"location_id": item.location.id, "kind": item.kind.value})
 
@@ -130,12 +137,14 @@ class WeatherboxService:
                 temporary = Path(temporary_dir)
                 speech_path = temporary / "speech.wav"
                 mp3_path = temporary / "announcement.mp3"
-                self.tts_provider.synthesize(text, speech_path)
+                tts_provider = self._tts_for_language(item.location.language)
+                tts_provider.synthesize(text, speech_path)
                 LOG.info(
                     "TTS synthesis completed",
                     extra={
                         "location_id": item.location.id,
-                        "provider": self.tts_provider.last_provider,
+                        "provider": tts_provider.last_provider,
+                        "language": item.location.language,
                     },
                 )
                 self.audio.process(speech_path, mp3_path, item.location.jingles.get(item.kind))
@@ -178,6 +187,13 @@ class WeatherboxService:
                     extra={"location_id": item.location.id, "kind": item.kind.value},
                 )
         return results
+
+    def _tts_for_language(self, language: str) -> FallbackTTSProvider:
+        if self._injected_tts_provider is not None:
+            return self._injected_tts_provider
+        if language not in self._tts_providers:
+            self._tts_providers[language] = create_tts_provider(self.config.tts, language)
+        return self._tts_providers[language]
 
     def manual_items(
         self,
@@ -229,6 +245,9 @@ class WeatherboxService:
             "locations": len(self.config.enabled_locations),
             "weather_cache": caches,
             "tts_provider": self.config.tts.provider,
+            "languages": {
+                location.id: location.language for location in self.config.enabled_locations
+            },
             "announcement_states": dict(counts),
             "last_updates": {
                 key: value.updated_at.isoformat()
