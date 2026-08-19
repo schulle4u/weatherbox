@@ -20,7 +20,7 @@ class AudioPipeline:
     def process(self, speech_path: Path, output_path: Path, jingle_path: Path | None = None) -> None:
         """Create and validate an MP3 from speech and an optional leading jingle."""
         if jingle_path is not None and not jingle_path.is_file():
-            raise AudioProcessingError(f"Jingle fehlt: {jingle_path}")
+            raise AudioProcessingError(f"Jingle missing: {jingle_path}")
         output_path.parent.mkdir(parents=True, exist_ok=True)
         command = [self.settings.ffmpeg, "-hide_banner", "-loglevel", "error", "-y"]
         if jingle_path:
@@ -45,7 +45,7 @@ class AudioPipeline:
             "-f", "mp3",
             str(output_path),
         ]
-        self._run(command, "FFmpeg-Verarbeitung")
+        self._run(command, "FFmpeg processing")
         self.validate(output_path)
 
     def _loudness_suffix(self) -> str:
@@ -58,7 +58,7 @@ class AudioPipeline:
     def validate(self, path: Path) -> None:
         """Verify that a file is a non-empty MP3 with the configured format."""
         if not path.is_file() or path.stat().st_size == 0:
-            raise AudioProcessingError("MP3-Datei fehlt oder ist leer")
+            raise AudioProcessingError("MP3 file missing or empty")
         command = [
             self.settings.ffprobe,
             "-v", "error",
@@ -67,21 +67,21 @@ class AudioPipeline:
             "-of", "json",
             str(path),
         ]
-        result = self._run(command, "FFprobe-Validierung", return_output=True)
+        result = self._run(command, "FFprobe validation", return_output=True)
         try:
             payload = json.loads(result)
             stream = payload["streams"][0]
             duration = float(payload["format"]["duration"])
             if stream["codec_name"] != "mp3":
-                raise ValueError("Codec ist nicht MP3")
+                raise ValueError("Codec is not MP3")
             if int(stream["channels"]) != self.settings.output.channels:
-                raise ValueError("unerwartete Kanalzahl")
+                raise ValueError("unexpected channel count")
             if int(stream["sample_rate"]) != self.settings.output.sample_rate:
-                raise ValueError("unerwartete Samplerate")
+                raise ValueError("unexpected sampling rate")
             if duration <= 0:
-                raise ValueError("ungültige Dauer")
+                raise ValueError("invalid duration")
         except (KeyError, IndexError, TypeError, ValueError, json.JSONDecodeError) as exc:
-            raise AudioProcessingError(f"Ungültige MP3-Ausgabe: {exc}") from exc
+            raise AudioProcessingError(f"Invalid MP3 output: {exc}") from exc
 
     @staticmethod
     def _run(command: list[str], label: str, *, return_output: bool = False) -> str:
@@ -89,8 +89,8 @@ class AudioPipeline:
         try:
             result = subprocess.run(command, capture_output=True, text=True, check=False, timeout=180)
         except (OSError, subprocess.TimeoutExpired) as exc:
-            raise AudioProcessingError(f"{label} konnte nicht ausgeführt werden: {exc}") from exc
+            raise AudioProcessingError(f"{label} could not be run: {exc}") from exc
         if result.returncode != 0:
             details = (result.stderr or result.stdout).strip()[-2000:]
-            raise AudioProcessingError(f"{label} fehlgeschlagen: {details}")
+            raise AudioProcessingError(f"{label} failed: {details}")
         return result.stdout if return_output else ""

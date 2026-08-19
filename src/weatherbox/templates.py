@@ -63,24 +63,24 @@ def render_template(template: str, context: dict[str, Any]) -> str:
             if field_name is None:
                 continue
             if not field_name or any(token in field_name for token in (".", "[", "]")):
-                raise TemplateRenderError(f"Ungültiger Platzhalter: {{{field_name}}}")
+                raise TemplateRenderError(f"Invalid placeholder: {{{field_name}}}")
             if format_spec or conversion:
-                raise TemplateRenderError(f"Formatangaben sind nicht erlaubt: {{{field_name}}}")
+                raise TemplateRenderError(f"Format specifications are not permitted: {{{field_name}}}")
             fields.add(field_name)
     except ValueError as exc:
-        raise TemplateRenderError(f"Ungültiges Template: {exc}") from exc
+        raise TemplateRenderError(f"Invalid template: {exc}") from exc
 
     unknown = fields - ALLOWED_FIELDS
     if unknown:
-        raise TemplateRenderError(f"Unbekannte Template-Variable(n): {', '.join(sorted(unknown))}")
+        raise TemplateRenderError(f"Unknown template variables: {', '.join(sorted(unknown))}")
     missing = sorted(name for name in fields if context.get(name) is None)
     if missing:
-        raise TemplateRenderError(f"Keine Daten für Template-Variable(n): {', '.join(missing)}")
+        raise TemplateRenderError(f"No data for template variables: {', '.join(missing)}")
     try:
         rendered = template.format_map(context)
     except (KeyError, ValueError) as exc:
-        raise TemplateRenderError(f"Template konnte nicht gerendert werden: {exc}") from exc
+        raise TemplateRenderError(f"Template could not be rendered: {exc}") from exc
     rendered = " ".join(rendered.split())
     if not rendered:
-        raise TemplateRenderError("Das gerenderte Template ist leer")
+        raise TemplateRenderError("The rendered template is empty")
     return rendered

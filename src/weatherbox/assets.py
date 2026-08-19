@@ -34,7 +34,7 @@ class AssetManager:
     def publish(self, source: Path, asset: AudioAsset) -> AudioAsset:
         """Atomically copy a generated MP3 to its versioned and public paths."""
         if not source.is_file() or source.stat().st_size == 0:
-            raise AssetPublicationError("Zu veröffentlichendes Asset fehlt oder ist leer")
+            raise AssetPublicationError("The asset to be published is missing or empty")
         asset.versioned_path.parent.mkdir(parents=True, exist_ok=True)
         asset.public_path.parent.mkdir(parents=True, exist_ok=True)
         version_temp = self._copy_to_temporary(source, asset.versioned_path.parent)
@@ -44,7 +44,7 @@ class AssetManager:
             public_temp = self._copy_to_temporary(asset.versioned_path, asset.public_path.parent)
             os.replace(public_temp, asset.public_path)
         except OSError as exc:
-            raise AssetPublicationError(f"Asset konnte nicht atomar veröffentlicht werden: {exc}") from exc
+            raise AssetPublicationError(f"The asset could not be published atomically: {exc}") from exc
         finally:
             version_temp.unlink(missing_ok=True)
             if public_temp:

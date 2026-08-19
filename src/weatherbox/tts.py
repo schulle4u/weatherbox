@@ -87,7 +87,7 @@ class FallbackTTSProvider:
             if self.fallback is None:
                 raise
             LOG.warning(
-                "TTS-Fallback wird verwendet",
+                "Using TTS fallback",
                 extra={"primary_provider": self.primary.name, "fallback_provider": self.fallback.name},
             )
             try:
@@ -95,8 +95,8 @@ class FallbackTTSProvider:
                 self.last_provider = self.fallback.name
             except TTSGenerationError as fallback_error:
                 raise TTSGenerationError(
-                    f"Primärer TTS-Provider fehlgeschlagen ({primary_error}); "
-                    f"Fallback fehlgeschlagen ({fallback_error})"
+                    f"Primary TTS provider failed ({primary_error}); "
+                    f"Fallback failed ({fallback_error})"
                 ) from fallback_error
 
 
@@ -134,13 +134,13 @@ def _run(command: list[str], *, provider: str, input_text: str | None = None) ->
             timeout=120,
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
-        raise TTSGenerationError(f"{provider} konnte nicht ausgeführt werden: {exc}") from exc
+        raise TTSGenerationError(f"{provider} could not be executed: {exc}") from exc
     if result.returncode != 0:
         details = (result.stderr or result.stdout).strip()[-1000:]
-        raise TTSGenerationError(f"{provider} Exit-Code {result.returncode}: {details}")
+        raise TTSGenerationError(f"{provider} exit code {result.returncode}: {details}")
 
 
 def _validate_wave_output(path: Path, provider: str) -> None:
     """Ensure a provider created a file large enough to contain a WAV header."""
     if not path.is_file() or path.stat().st_size < 44:
-        raise TTSGenerationError(f"{provider} hat keine gültige WAV-Datei erzeugt")
+        raise TTSGenerationError(f"{provider} has not generated a valid WAV file")

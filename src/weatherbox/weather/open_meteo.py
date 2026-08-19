@@ -47,11 +47,11 @@ class OpenMeteoProvider:
             with urlopen(request, timeout=self.timeout_seconds) as response:
                 payload = json.load(response)
         except (OSError, HTTPError, URLError, TimeoutError, json.JSONDecodeError) as exc:
-            raise WeatherUnavailableError(f"Open-Meteo-Abruf fehlgeschlagen: {exc}") from exc
+            raise WeatherUnavailableError(f"Fetching from Open-Meteo failed: {exc}") from exc
         try:
             return self._parse(payload, location.timezone)
         except (KeyError, TypeError, ValueError, IndexError, ZoneInfoNotFoundError) as exc:
-            raise WeatherUnavailableError(f"Ungültige Open-Meteo-Antwort: {exc}") from exc
+            raise WeatherUnavailableError(f"Invalid Open-Meteo response: {exc}") from exc
 
     @staticmethod
     def _parse(payload: dict[str, Any], timezone: str) -> ForecastBundle:

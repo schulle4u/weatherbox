@@ -21,26 +21,26 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("-c", "--config", type=Path, default=Path("config.yaml"))
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    subparsers.add_parser("run", help="Alle aktuell fälligen Ansagen erzeugen")
-    subparsers.add_parser("weather-update", help="Wettercache aller Standorte aktualisieren")
-    subparsers.add_parser("status", help="Status als JSON ausgeben")
+    subparsers.add_parser("run", help="Generate all currently due announcements")
+    subparsers.add_parser("weather-update", help="Update weather cache for all locations")
+    subparsers.add_parser("status", help="Output status as JSON")
 
     for command, help_text in (
-        ("generate-half-hour", "Nächste halbstündliche Ansage aller Standorte erzeugen"),
-        ("generate-full-hour", "Nächste stündliche Ansage aller Standorte erzeugen"),
-        ("generate-all", "Beide Ansagetypen aller Standorte erzeugen"),
+        ("generate-half-hour", "Generate the next half-hourly announcement for all locations"),
+        ("generate-full-hour", "Generate the next hourly announcement for all locations"),
+        ("generate-all", "Generate both announcements for all locations"),
     ):
         child = subparsers.add_parser(command, help=help_text)
-        child.add_argument("--at", help="Wiedergabezeitpunkt als ISO-8601-Zeit")
+        child.add_argument("--at", help="Playback time as ISO-8601 value")
 
-    location = subparsers.add_parser("generate-location", help="Beide Ansagetypen eines Standorts erzeugen")
+    location = subparsers.add_parser("generate-location", help="Generate both announcements for  a specific location")
     location.add_argument("location_id")
-    location.add_argument("--at", help="Wiedergabezeitpunkt als ISO-8601-Zeit")
+    location.add_argument("--at", help="Playback time as ISO-8601 value")
 
-    time_parser = subparsers.add_parser("generate-time", help="Gezielte Ansage erzeugen")
+    time_parser = subparsers.add_parser("generate-time", help="Create a custom announcement")
     time_parser.add_argument("location_id")
     time_parser.add_argument("kind", choices=[kind.value for kind in AnnouncementKind])
-    time_parser.add_argument("--at", help="Wiedergabezeitpunkt als ISO-8601-Zeit")
+    time_parser.add_argument("--at", help="Playback time as ISO-8601 value")
     return parser
 
 
@@ -83,7 +83,7 @@ def main(argv: list[str] | None = None) -> int:
             else:
                 location_id = args.location_id
                 if location_id not in config.locations:
-                    raise ConfigurationError(f"Unbekannter Standort: {location_id}")
+                    raise ConfigurationError(f"Unknown location: {location_id}")
                 locations = (config.locations[location_id],)
                 if args.command == "generate-time":
                     kinds = (AnnouncementKind(args.kind),)
@@ -94,5 +94,5 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(results, ensure_ascii=False, indent=2))
         return 1 if any(value is False or str(value).startswith("ERROR:") for value in results.values()) else 0
     except (ConfigurationError, WeatherboxError, ValueError) as exc:
-        print(f"Fehler: {exc}", file=sys.stderr)
+        print(f"Error: {exc}", file=sys.stderr)
         return 2

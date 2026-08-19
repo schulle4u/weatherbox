@@ -102,16 +102,16 @@ class WeatherboxService:
                     )
                 else:
                     raise WeatherUnavailableError(
-                        f"Keine ausreichend aktuellen Wetterdaten für {location.id}: {exc}"
+                        f"Not enough recent weather data for {location.id}: {exc}"
                     ) from exc
         if not cached or not self.weather_cache.is_fresh(
             cached, now, self.config.weather.max_cache_age_minutes
         ):
-            raise WeatherUnavailableError(f"Wettercache für {location.id} ist zu alt")
+            raise WeatherUnavailableError(f"Weather cache for {location.id} is to old")
         forecast = cached.for_time(playback_at)
         if forecast is None:
             raise WeatherUnavailableError(
-                f"Kein passender Forecast für {location.id} um {playback_at.isoformat()}"
+                f"No matching forecast for {location.id} at {playback_at.isoformat()}"
             )
         return forecast
 

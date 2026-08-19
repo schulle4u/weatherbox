@@ -156,7 +156,7 @@ def _mapping(data: dict[str, Any], key: str) -> dict[str, Any]:
     """Return a configuration section and ensure it is a mapping."""
     value = data.get(key, {})
     if not isinstance(value, dict):
-        raise ConfigurationError(f"'{key}' muss ein YAML-Objekt sein")
+        raise ConfigurationError(f"'{key}' must be a YAML object")
     return value
 
 
@@ -165,10 +165,10 @@ def _positive(value: Any, path: str, *, allow_zero: bool = False) -> int:
     try:
         number = int(value)
     except (TypeError, ValueError) as exc:
-        raise ConfigurationError(f"'{path}' muss eine Ganzzahl sein") from exc
+        raise ConfigurationError(f"'{path}' must be an integer") from exc
     minimum = 0 if allow_zero else 1
     if number < minimum:
-        raise ConfigurationError(f"'{path}' muss mindestens {minimum} sein")
+        raise ConfigurationError(f"'{path}' must be at least {minimum}")
     return number
 
 
@@ -184,11 +184,11 @@ def load_config(path: str | Path) -> Config:
     try:
         raw = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
     except OSError as exc:
-        raise ConfigurationError(f"Konfiguration kann nicht gelesen werden: {source}") from exc
+        raise ConfigurationError(f"Configuration cannot be read: {source}") from exc
     except yaml.YAMLError as exc:
-        raise ConfigurationError(f"Ungültiges YAML in {source}: {exc}") from exc
+        raise ConfigurationError(f"Invalid YAML in {source}: {exc}") from exc
     if not isinstance(raw, dict):
-        raise ConfigurationError("Die YAML-Wurzel muss ein Objekt sein")
+        raise ConfigurationError("YAML root must be an object")
 
     base = source.parent
     app = _mapping(raw, "application")
@@ -213,7 +213,7 @@ def load_config(path: str | Path) -> Config:
     )
     locations_raw = _mapping(raw, "locations")
     if not locations_raw:
-        raise ConfigurationError("Mindestens ein Standort unter 'locations' ist erforderlich")
+        raise ConfigurationError("At least one entry is required at 'locations'")
 
     default_language = str(localization.get("default_language", "de"))
     language_directory_value = localization.get("directory")
@@ -227,24 +227,24 @@ def load_config(path: str | Path) -> Config:
     for location_id, location_raw in locations_raw.items():
         if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]*", str(location_id)):
             raise ConfigurationError(
-                f"Ungültige Standort-ID '{location_id}'; erlaubt sind Buchstaben, Zahlen, '_' und '-'"
+                f"Invalid location ID '{location_id}'; only letters, numbers, '_' and '-' are allowed"
             )
         if not isinstance(location_raw, dict):
-            raise ConfigurationError(f"Standort '{location_id}' muss ein Objekt sein")
+            raise ConfigurationError(f"Location '{location_id}' must be an object")
         try:
             latitude = float(location_raw["latitude"])
             longitude = float(location_raw["longitude"])
             name = str(location_raw["name"])
             timezone = str(location_raw["timezone"])
         except KeyError as exc:
-            raise ConfigurationError(f"Standort '{location_id}': Pflichtfeld {exc} fehlt") from exc
+            raise ConfigurationError(f"Location '{location_id}': required field {exc} is missing") from exc
         if not -90 <= latitude <= 90 or not -180 <= longitude <= 180:
-            raise ConfigurationError(f"Standort '{location_id}': ungültige Koordinaten")
+            raise ConfigurationError(f"Location '{location_id}': invalid coordinates")
         try:
             ZoneInfo(timezone)
         except ZoneInfoNotFoundError as exc:
             raise ConfigurationError(
-                f"Standort '{location_id}': unbekannte Zeitzone '{timezone}'"
+                f"Location '{location_id}': unknown time zone '{timezone}'"
             ) from exc
         language = str(location_raw.get("language", default_language))
         language_catalog.get(language)
@@ -257,7 +257,7 @@ def load_config(path: str | Path) -> Config:
             template = merged.get("template")
             if merged.get("enabled", True) and not isinstance(template, str):
                 raise ConfigurationError(
-                    f"Standort '{location_id}': Template für '{kind.value}' fehlt"
+                    f"Location '{location_id}': Template for '{kind.value}' is missing"
                 )
             announcement_specs[kind] = AnnouncementSpec(
                 enabled=bool(merged.get("enabled", True)), template=str(template or "")
@@ -286,14 +286,14 @@ def load_config(path: str | Path) -> Config:
     fallback = tts.get("fallback_provider", "espeak-ng")
     valid_providers = {"piper", "espeak-ng"}
     if provider not in valid_providers or (fallback is not None and fallback not in valid_providers):
-        raise ConfigurationError("TTS-Provider muss 'piper' oder 'espeak-ng' sein")
+        raise ConfigurationError("TTS provider must be 'piper' or 'espeak-ng'")
 
     tts_languages_raw = _mapping(tts, "languages")
     tts_languages: dict[str, TTSLanguageSettings] = {}
     for language_code, override_raw in tts_languages_raw.items():
         language_catalog.get(str(language_code))
         if not isinstance(override_raw, dict):
-            raise ConfigurationError(f"tts.languages.{language_code} muss ein Objekt sein")
+            raise ConfigurationError(f"tts.languages.{language_code} must be an object")
         piper_override = _mapping(override_raw, "piper")
         espeak_override = _mapping(override_raw, "espeak-ng")
         model_value = piper_override.get("model")
@@ -304,10 +304,10 @@ def load_config(path: str | Path) -> Config:
         )
 
     if str(audio_output.get("format", "mp3")).lower() != "mp3":
-        raise ConfigurationError("'audio.output.format' muss 'mp3' sein")
+        raise ConfigurationError("'audio.output.format' must be 'mp3'")
     channels = _positive(audio_output.get("channels", 2), "audio.output.channels")
     if channels != 2:
-        raise ConfigurationError("'audio.output.channels' muss für Weatherbox 2 (Stereo) sein")
+        raise ConfigurationError("'audio.output.channels' must be 2 (stereo)")
 
     return Config(
         source_path=source,

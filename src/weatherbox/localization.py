@@ -136,7 +136,7 @@ class LanguageCatalog:
         self._load_resources(item for item in builtin_directory.iterdir() if item.name.endswith(".yaml"))
         if custom_directory is not None:
             if not custom_directory.is_dir():
-                raise ConfigurationError(f"Sprachverzeichnis existiert nicht: {custom_directory}")
+                raise ConfigurationError(f"Language directory doesn't exist: {custom_directory}")
             self._load_resources(sorted(custom_directory.glob("*.yaml")))
 
     @property
@@ -151,7 +151,7 @@ class LanguageCatalog:
         except KeyError as exc:
             available = ", ".join(self.available)
             raise ConfigurationError(
-                f"Unbekannte Sprache '{code}'. Verfügbar: {available or 'keine'}"
+                f"Unknown language '{code}'. Available: {available or 'none'}"
             ) from exc
 
     def _load_resources(self, files: Iterable[Any]) -> None:
@@ -160,7 +160,7 @@ class LanguageCatalog:
             try:
                 raw = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
             except (OSError, yaml.YAMLError) as exc:
-                raise ConfigurationError(f"Sprachdatei kann nicht geladen werden: {source}: {exc}") from exc
+                raise ConfigurationError(f"Language file cannot be loaded: {source}: {exc}") from exc
             formatter = _parse_language(raw, str(source))
             self._languages[formatter.code] = formatter
 
@@ -168,7 +168,7 @@ class LanguageCatalog:
 def _parse_language(raw: Any, source: str) -> LanguageFormatter:
     """Validate a raw language mapping and build its formatter."""
     if not isinstance(raw, dict):
-        raise ConfigurationError(f"Sprachdatei muss ein YAML-Objekt sein: {source}")
+        raise ConfigurationError(f"Language file must be a YAML object: {source}")
     try:
         code = str(raw["code"])
         number_raw = _required_mapping(raw, "numbers", source)
@@ -178,13 +178,13 @@ def _parse_language(raw: Any, source: str) -> LanguageFormatter:
         order = str(compound["order"])
         if order not in {"ones_tens", "tens_ones"}:
             raise ConfigurationError(
-                f"numbers.compound.order muss 'ones_tens' oder 'tens_ones' sein: {source}"
+                f"numbers.compound.order must be 'ones_tens' or 'tens_ones': {source}"
             )
         compound_overrides = _optional_integer_words(compound.get("ones_overrides", {}), source)
         exact_overrides = _optional_integer_words(number_raw.get("overrides", {}), source)
         context_raw = number_raw.get("context_overrides", {})
         if not isinstance(context_raw, dict):
-            raise ConfigurationError(f"numbers.context_overrides muss ein Objekt sein: {source}")
+            raise ConfigurationError(f"numbers.context_overrides must be an object: {source}")
         context_overrides = {
             str(context): _optional_integer_words(values, source)
             for context, values in context_raw.items()
@@ -195,12 +195,12 @@ def _parse_language(raw: Any, source: str) -> LanguageFormatter:
         with_minutes = _validated_pattern(time_raw["with_minutes"], {"hour", "minute"}, source)
         hour_mode = int(time_raw.get("hour_mode", 24))
         if hour_mode not in {12, 24}:
-            raise ConfigurationError(f"time.hour_mode muss 12 oder 24 sein: {source}")
+            raise ConfigurationError(f"time.hour_mode must be 12 or 24: {source}")
         date_raw = _required_mapping(raw, "date", source)
         date_pattern = _validated_pattern(date_raw["pattern"], {"day", "month", "year"}, source)
         months = tuple(str(value) for value in date_raw["months"])
         if len(months) != 12 or not all(months):
-            raise ConfigurationError(f"date.months muss genau zwölf Einträge enthalten: {source}")
+            raise ConfigurationError(f"date.months must contain exactly 12 entries: {source}")
 
         weather_raw = _required_mapping(raw, "weather", source)
         weather_descriptions = _optional_integer_words(weather_raw["descriptions"], source)
@@ -208,11 +208,11 @@ def _parse_language(raw: Any, source: str) -> LanguageFormatter:
         wind_raw = _required_mapping(raw, "wind", source)
         wind_directions = tuple(str(value) for value in wind_raw["directions"])
         if len(wind_directions) != 16 or not all(wind_directions):
-            raise ConfigurationError(f"wind.directions muss genau 16 Einträge enthalten: {source}")
+            raise ConfigurationError(f"wind.directions must contain exactly 16 entries: {source}")
     except KeyError as exc:
-        raise ConfigurationError(f"Pflichtfeld {exc} fehlt in Sprachdatei: {source}") from exc
+        raise ConfigurationError(f"Required field {exc} is missing in language file: {source}") from exc
     except TypeError as exc:
-        raise ConfigurationError(f"Ungültige Struktur in Sprachdatei: {source}") from exc
+        raise ConfigurationError(f"Invalid structure in language file: {source}") from exc
 
     return LanguageFormatter(
         code=code,
@@ -243,7 +243,7 @@ def _required_mapping(parent: dict[str, Any], key: str, source: str) -> dict[str
     """Return a required mapping from a language definition."""
     value = parent[key]
     if not isinstance(value, dict):
-        raise ConfigurationError(f"'{key}' muss ein Objekt sein: {source}")
+        raise ConfigurationError(f"'{key}' must be an object: {source}")
     return value
 
 
@@ -254,18 +254,18 @@ def _integer_words(
     values = _optional_integer_words(parent[key], source)
     missing = [number for number in required if number not in values]
     if missing:
-        raise ConfigurationError(f"{key} fehlen Zahlen {missing}: {source}")
+        raise ConfigurationError(f"{key} missing numbers {missing}: {source}")
     return values
 
 
 def _optional_integer_words(raw: Any, source: str) -> dict[int, str]:
     """Convert a mapping's keys to integers and its values to strings."""
     if not isinstance(raw, dict):
-        raise ConfigurationError(f"Zahlenwörter müssen ein Objekt sein: {source}")
+        raise ConfigurationError(f"Number words must be an object: {source}")
     try:
         return {int(number): str(word) for number, word in raw.items()}
     except (TypeError, ValueError) as exc:
-        raise ConfigurationError(f"Ungültiger Zahlenwert in Sprachdatei: {source}") from exc
+        raise ConfigurationError(f"Invalid number value in language file: {source}") from exc
 
 
 def _validated_pattern(raw: Any, allowed: set[str], source: str) -> str:
@@ -274,10 +274,10 @@ def _validated_pattern(raw: Any, allowed: set[str], source: str) -> str:
     try:
         fields = {field for _, field, _, _ in Formatter().parse(pattern) if field is not None}
     except ValueError as exc:
-        raise ConfigurationError(f"Ungültiges Formatmuster in Sprachdatei: {source}") from exc
+        raise ConfigurationError(f"Invalid format pattern in language file: {source}") from exc
     if fields != allowed:
         raise ConfigurationError(
-            f"Formatmuster in {source} benötigt genau: {', '.join(sorted(allowed))}"
+            f"Format pattern in {source} requires exactly: {', '.join(sorted(allowed))}"
         )
     return pattern
 
