@@ -242,3 +242,11 @@ Weatherbox erzeugt keine Live-Audioausgabe. Eine neue Datei wird erst nach
 erfolgreicher TTS-Erzeugung, Audioverarbeitung und FFprobe-Validierung atomar an
 die stabile öffentliche Stelle verschoben. Schlägt ein Schritt fehl, bleibt das
 bisherige öffentliche Asset unverändert.
+
+Die TTS-Implementierung liegt im Paket `src/weatherbox/tts/`:
+
+- `piper.py`, `espeak_ng.py` und `gtts.py` enthalten jeweils genau einen Provider
+- `fallback.py` steuert die primäre und sekundäre Ausgabe
+- `factory.py` übersetzt die Konfiguration in eine Provider-Kette
+- `base.py` enthält nur die gemeinsame Schnittstelle und Validierungshelfer
+- `__init__.py` stellt die bisherige öffentliche Importoberfläche bereit
