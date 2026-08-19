@@ -18,6 +18,9 @@ ALLOWED_FIELDS = frozenset(
         "weather_description", "weather_code", "cloud_cover", "wind_speed",
         "wind_direction", "wind_direction_degrees", "wind_gusts", "precipitation",
         "precipitation_probability", "sunrise", "sunset", "forecast_time",
+        "warning_count", "warning_level", "warning_event", "warning_headline",
+        "warning_description", "warning_instruction", "warning_start", "warning_end",
+        "warning_text", "temperature_source", "weather_source", "warning_source",
     }
 )
 
@@ -44,7 +47,42 @@ def build_context(
         "sunrise": formatter.format_time(weather.sunrise) if weather.sunrise else None,
         "sunset": formatter.format_time(weather.sunset) if weather.sunset else None,
         "forecast_time": formatter.format_time(weather.forecast_at),
+        "temperature_source": weather.source_for("temperature"),
+        "weather_source": weather.source_for("weather_code"),
     }
+    active_warnings = sorted(
+        (warning for warning in weather.warnings if warning.is_active(playback_at)),
+        key=lambda warning: (-warning.level, warning.start),
+    )
+    primary_warning = active_warnings[0] if active_warnings else None
+    context.update(
+        {
+            "warning_count": formatter.format_decimal(len(active_warnings)),
+            "warning_level": (
+                formatter.format_decimal(primary_warning.level) if primary_warning else None
+            ),
+            "warning_event": primary_warning.event if primary_warning else None,
+            "warning_headline": primary_warning.headline if primary_warning else None,
+            "warning_description": primary_warning.description if primary_warning else None,
+            "warning_instruction": primary_warning.instruction if primary_warning else None,
+            "warning_source": primary_warning.source if primary_warning else None,
+            "warning_start": (
+                formatter.format_time(primary_warning.start) if primary_warning else None
+            ),
+            "warning_end": (
+                formatter.format_time(primary_warning.end)
+                if primary_warning and primary_warning.end
+                else None
+            ),
+            "warning_text": (
+                formatter.warning_separator.join(
+                    warning.headline or warning.event for warning in active_warnings
+                )
+                if active_warnings
+                else formatter.no_active_warning
+            ),
+        }
+    )
     for name in (
         "temperature", "apparent_temperature", "dew_point", "humidity", "pressure",
         "cloud_cover", "wind_speed", "wind_gusts", "precipitation",

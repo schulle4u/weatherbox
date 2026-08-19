@@ -91,6 +91,17 @@ weather:
     95: "Gewitter"
     96: "Gewitter mit leichtem Hagel"
     99: "Gewitter mit starkem Hagel"
+    68: "leichter Schneeregen"
+    69: "starker Schneeregen"
+    79: "Eiskörner"
+    83: "leichte Schneeregenschauer"
+    84: "starke Schneeregenschauer"
+    87: "leichte Graupelschauer"
+    88: "starke Graupelschauer"
+
+warnings:
+  none: "Keine amtliche Wetterwarnung aktiv"
+  separator: "; "
 
 wind:
   directions:

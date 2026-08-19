@@ -12,7 +12,18 @@ import yaml
 
 from weatherbox.errors import ConfigurationError
 from weatherbox.localization import LanguageCatalog
-from weatherbox.models import AnnouncementKind, AnnouncementSpec, Location
+from weatherbox.models import (
+    WEATHER_VALUE_FIELDS,
+    AnnouncementKind,
+    AnnouncementSpec,
+    Location,
+)
+
+
+WEATHER_PROVIDER_ENDPOINTS = {
+    "open-meteo": "https://api.open-meteo.com/v1/forecast",
+    "dwd": "https://app-prod-ws.warnwetter.de/v30/stationOverviewExtended",
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -32,13 +43,46 @@ class LocalizationSettings:
 
 
 @dataclass(frozen=True, slots=True)
+class WeatherProviderSettings:
+    """Connection settings for one weather provider."""
+
+    name: str
+    endpoint: str
+    request_timeout_seconds: float
+
+
+@dataclass(frozen=True, slots=True)
+class WeatherMergeSettings:
+    """Rules for aligning and merging provider data."""
+
+    tolerance_minutes: int
+    default_priority: tuple[str, ...]
+    field_priority: dict[str, tuple[str, ...]]
+
+
+@dataclass(frozen=True, slots=True)
 class WeatherSettings:
-    """Weather provider and cache freshness settings."""
+    """Weather providers, merge rules, and cache freshness settings."""
 
     update_interval_minutes: int
     max_cache_age_minutes: int
-    request_timeout_seconds: float
-    endpoint: str
+    providers: tuple[WeatherProviderSettings, ...]
+    merge: WeatherMergeSettings
+
+    @property
+    def provider(self) -> str:
+        """Return the first provider name for legacy callers."""
+        return self.providers[0].name
+
+    @property
+    def endpoint(self) -> str:
+        """Return the first provider endpoint for legacy callers."""
+        return self.providers[0].endpoint
+
+    @property
+    def request_timeout_seconds(self) -> float:
+        """Return the first provider timeout for legacy callers."""
+        return self.providers[0].request_timeout_seconds
 
 
 @dataclass(frozen=True, slots=True)
@@ -202,6 +246,124 @@ def _resolve(base: Path, value: str | Path) -> Path:
     return path if path.is_absolute() else (base / path).resolve()
 
 
+def _weather_priority(
+    raw: Any,
+    path: str,
+    configured: tuple[str, ...],
+) -> tuple[str, ...]:
+    """Validate a provider priority and append omitted providers as fallbacks."""
+    if not isinstance(raw, list) or not raw:
+        raise ConfigurationError(f"'{path}' must be a non-empty YAML list")
+    priority = tuple(str(value).lower() for value in raw)
+    if len(set(priority)) != len(priority):
+        raise ConfigurationError(f"'{path}' must not contain duplicate providers")
+    unknown = set(priority) - set(configured)
+    if unknown:
+        raise ConfigurationError(
+            f"'{path}' references unconfigured providers: {', '.join(sorted(unknown))}"
+        )
+    return priority + tuple(name for name in configured if name not in priority)
+
+
+def _weather_settings(raw: dict[str, Any]) -> WeatherSettings:
+    """Parse legacy or multi-provider weather configuration."""
+    global_timeout = _positive_float(
+        raw.get("request_timeout_seconds", 15), "weather.request_timeout_seconds"
+    )
+    providers: list[WeatherProviderSettings] = []
+    if "providers" in raw:
+        if "provider" in raw or "endpoint" in raw:
+            raise ConfigurationError(
+                "Use either 'weather.provider'/'weather.endpoint' or 'weather.providers'"
+            )
+        providers_raw = raw["providers"]
+        if isinstance(providers_raw, list):
+            entries = [(str(name), {}) for name in providers_raw]
+        elif isinstance(providers_raw, dict):
+            entries = []
+            for name, options in providers_raw.items():
+                if options is None:
+                    options = {}
+                if not isinstance(options, dict):
+                    raise ConfigurationError(
+                        f"'weather.providers.{name}' must be a YAML object"
+                    )
+                entries.append((str(name), options))
+        else:
+            raise ConfigurationError(
+                "'weather.providers' must be a YAML list or object"
+            )
+        if not entries:
+            raise ConfigurationError("At least one weather provider is required")
+        for raw_name, options in entries:
+            name = raw_name.lower()
+            if name not in WEATHER_PROVIDER_ENDPOINTS:
+                raise ConfigurationError(
+                    f"Unknown weather provider '{raw_name}'; expected 'open-meteo' or 'dwd'"
+                )
+            providers.append(
+                WeatherProviderSettings(
+                    name=name,
+                    endpoint=str(options.get("endpoint", WEATHER_PROVIDER_ENDPOINTS[name])),
+                    request_timeout_seconds=_positive_float(
+                        options.get("request_timeout_seconds", global_timeout),
+                        f"weather.providers.{name}.request_timeout_seconds",
+                    ),
+                )
+            )
+    else:
+        name = str(raw.get("provider", "open-meteo")).lower()
+        if name not in WEATHER_PROVIDER_ENDPOINTS:
+            raise ConfigurationError("Weather provider must be 'open-meteo' or 'dwd'")
+        providers.append(
+            WeatherProviderSettings(
+                name=name,
+                endpoint=str(raw.get("endpoint", WEATHER_PROVIDER_ENDPOINTS[name])),
+                request_timeout_seconds=global_timeout,
+            )
+        )
+
+    provider_names = tuple(provider.name for provider in providers)
+    if len(set(provider_names)) != len(provider_names):
+        raise ConfigurationError("'weather.providers' must not contain duplicates")
+    merge_raw = _mapping(raw, "merge")
+    default_priority = _weather_priority(
+        merge_raw.get("default_priority", list(provider_names)),
+        "weather.merge.default_priority",
+        provider_names,
+    )
+    field_priority_raw = _mapping(merge_raw, "field_priority")
+    valid_fields = set(WEATHER_VALUE_FIELDS) | {"warnings"}
+    unknown_fields = set(field_priority_raw) - valid_fields
+    if unknown_fields:
+        raise ConfigurationError(
+            "Unknown weather merge fields: " + ", ".join(sorted(unknown_fields))
+        )
+    field_priority = {
+        str(field): _weather_priority(
+            value, f"weather.merge.field_priority.{field}", provider_names
+        )
+        for field, value in field_priority_raw.items()
+    }
+    return WeatherSettings(
+        update_interval_minutes=_positive(
+            raw.get("update_interval_minutes", 30), "weather.update_interval_minutes"
+        ),
+        max_cache_age_minutes=_positive(
+            raw.get("max_cache_age_minutes", 60), "weather.max_cache_age_minutes"
+        ),
+        providers=tuple(providers),
+        merge=WeatherMergeSettings(
+            tolerance_minutes=_positive(
+                merge_raw.get("tolerance_minutes", 30),
+                "weather.merge.tolerance_minutes",
+            ),
+            default_priority=default_priority,
+            field_priority=field_priority,
+        ),
+    )
+
+
 def load_config(path: str | Path) -> Config:
     """Load a YAML file and return its validated application configuration."""
     source = Path(path).expanduser().resolve()
@@ -218,6 +380,7 @@ def load_config(path: str | Path) -> Config:
     app = _mapping(raw, "application")
     localization = _mapping(raw, "localization")
     weather = _mapping(raw, "weather")
+    weather_settings = _weather_settings(weather)
     scheduler = _mapping(raw, "scheduler")
     retry = _mapping(scheduler, "retry")
     tts = _mapping(raw, "tts")
@@ -289,6 +452,20 @@ def load_config(path: str | Path) -> Config:
             )
 
         location_audio = _mapping(location_raw, "audio")
+        location_weather = _mapping(location_raw, "weather")
+        dwd_station_value = location_weather.get("dwd_station_id")
+        dwd_station_id = str(dwd_station_value) if dwd_station_value is not None else None
+        if dwd_station_id is not None and not re.fullmatch(r"[A-Za-z0-9]+", dwd_station_id):
+            raise ConfigurationError(
+                f"Location '{location_id}': invalid DWD station ID '{dwd_station_id}'"
+            )
+        dwd_enabled = any(
+            provider.name == "dwd" for provider in weather_settings.providers
+        )
+        if dwd_enabled and bool(location_raw.get("enabled", True)) and not dwd_station_id:
+            raise ConfigurationError(
+                f"Location '{location_id}': weather.dwd_station_id is required for DWD"
+            )
         location_jingles = _mapping(location_audio, "jingles")
         jingles: dict[AnnouncementKind, Path | None] = {}
         for kind in AnnouncementKind:
@@ -305,6 +482,7 @@ def load_config(path: str | Path) -> Config:
             announcements=announcement_specs,
             jingles=jingles,
             language=language,
+            dwd_station_id=dwd_station_id,
         )
 
     provider = str(tts.get("provider", "piper"))
@@ -349,12 +527,7 @@ def load_config(path: str | Path) -> Config:
             default_language=default_language,
             directory=language_directory,
         ),
-        weather=WeatherSettings(
-            update_interval_minutes=_positive(weather.get("update_interval_minutes", 30), "weather.update_interval_minutes"),
-            max_cache_age_minutes=_positive(weather.get("max_cache_age_minutes", 60), "weather.max_cache_age_minutes"),
-            request_timeout_seconds=float(weather.get("request_timeout_seconds", 15)),
-            endpoint=str(weather.get("endpoint", "https://api.open-meteo.com/v1/forecast")),
-        ),
+        weather=weather_settings,
         scheduler=SchedulerSettings(
             preparation_minutes=_positive(scheduler.get("preparation_minutes", 10), "scheduler.preparation_minutes"),
             retry=RetrySettings(

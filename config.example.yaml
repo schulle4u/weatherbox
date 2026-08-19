@@ -9,10 +9,27 @@ localization:
   # directory: lang
 
 weather:
+  # Rückwärtskompatible Einzelprovider-Konfiguration. Für die gleichzeitige
+  # Nutzung beider Quellen provider/endpoint entfernen, providers und merge
+  # unten einkommentieren und je Standort dwd_station_id setzen.
+  provider: open-meteo
   endpoint: https://api.open-meteo.com/v1/forecast
   update_interval_minutes: 30
   max_cache_age_minutes: 60
   request_timeout_seconds: 15
+  # providers:
+  #   open-meteo:
+  #     endpoint: https://api.open-meteo.com/v1/forecast
+  #   dwd:
+  #     endpoint: https://app-prod-ws.warnwetter.de/v30/stationOverviewExtended
+  # merge:
+  #   tolerance_minutes: 30
+  #   default_priority: [open-meteo, dwd]
+  #   field_priority:
+  #     temperature: [dwd, open-meteo]
+  #     humidity: [dwd, open-meteo]
+  #     pressure: [dwd, open-meteo]
+  #     warnings: [dwd, open-meteo]
 
 scheduler:
   preparation_minutes: 10
@@ -98,6 +115,9 @@ locations:
     timezone: Europe/Berlin
     language: de
     enabled: true
+    # Sobald DWD unter weather.provider oder weather.providers aktiv ist:
+    # weather:
+    #   dwd_station_id: G005
     # Beispiel für standortspezifische Überschreibungen:
     # announcements:
     #   half_hour:

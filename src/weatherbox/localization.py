@@ -58,6 +58,8 @@ class LanguageFormatter:
     weather_descriptions: dict[int, str]
     unknown_weather: str
     wind_directions: tuple[str, ...]
+    no_active_warning: str
+    warning_separator: str
 
     def format_number(self, number: int, *, context: str | None = None) -> str:
         """Spell an integer from 0 through 59, applying contextual overrides."""
@@ -209,6 +211,9 @@ def _parse_language(raw: Any, source: str) -> LanguageFormatter:
         wind_directions = tuple(str(value) for value in wind_raw["directions"])
         if len(wind_directions) != 16 or not all(wind_directions):
             raise ConfigurationError(f"wind.directions must contain exactly 16 entries: {source}")
+        warning_raw = raw.get("warnings", {})
+        if not isinstance(warning_raw, dict):
+            raise ConfigurationError(f"'warnings' must be an object: {source}")
     except KeyError as exc:
         raise ConfigurationError(f"Required field {exc} is missing in language file: {source}") from exc
     except TypeError as exc:
@@ -236,6 +241,8 @@ def _parse_language(raw: Any, source: str) -> LanguageFormatter:
         weather_descriptions=weather_descriptions,
         unknown_weather=unknown_weather,
         wind_directions=wind_directions,
+        no_active_warning=str(warning_raw.get("none", "No active weather warning")),
+        warning_separator=str(warning_raw.get("separator", "; ")),
     )
 
 

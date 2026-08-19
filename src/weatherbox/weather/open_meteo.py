@@ -24,6 +24,8 @@ HOURLY_FIELDS = (
 class OpenMeteoProvider:
     """Fetch location forecasts from an Open-Meteo-compatible endpoint."""
 
+    name = "open-meteo"
+
     def __init__(self, endpoint: str, timeout_seconds: float = 15) -> None:
         """Initialize the provider with an endpoint and request timeout."""
         self.endpoint = endpoint
@@ -89,7 +91,7 @@ class OpenMeteoProvider:
                     wind_gusts=values["wind_gusts_10m"],
                     sunrise=sunrise_by_date.get(forecast_at.date().isoformat()),
                     sunset=sunset_by_date.get(forecast_at.date().isoformat()),
-                )
+                ).with_source("open-meteo")
             )
         return ForecastBundle(fetched_at=datetime.now().astimezone(), forecasts=tuple(forecasts))
 

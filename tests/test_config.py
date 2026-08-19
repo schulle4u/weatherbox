@@ -5,6 +5,7 @@ from weatherbox.config import load_config
 from weatherbox.errors import ConfigurationError
 from weatherbox.models import AnnouncementKind
 from weatherbox.tts import EspeakProvider, GTTSProvider, PiperProvider, create_tts_provider
+from weatherbox.weather import DWDProvider, MergedWeatherProvider, create_weather_provider
 
 
 def test_load_config_and_resolve_paths(tmp_path):
@@ -132,4 +133,86 @@ def test_gtts_timeout_must_be_positive(tmp_path):
     path.write_text(text, encoding="utf-8")
 
     with pytest.raises(ConfigurationError, match="timeout_seconds"):
+        load_config(path)
+
+
+def test_dwd_weather_provider_and_station_are_configured(tmp_path):
+    path = write_test_config(tmp_path / "config.yaml")
+    text = path.read_text(encoding="utf-8")
+    text = text.replace("weather:\n", "weather:\n  provider: dwd\n", 1).replace(
+        "    timezone: Europe/Berlin",
+        "    timezone: Europe/Berlin\n    weather:\n      dwd_station_id: G005",
+    )
+    path.write_text(text, encoding="utf-8")
+
+    config = load_config(path)
+    provider = create_weather_provider(config.weather)
+
+    assert config.weather.provider == "dwd"
+    assert config.locations["wittstock"].dwd_station_id == "G005"
+    assert isinstance(provider, DWDProvider)
+    assert provider.endpoint.endswith("stationOverviewExtended")
+
+
+def test_dwd_provider_requires_station_for_enabled_location(tmp_path):
+    path = write_test_config(tmp_path / "config.yaml")
+    text = path.read_text(encoding="utf-8").replace(
+        "weather:\n", "weather:\n  provider: dwd\n", 1
+    )
+    path.write_text(text, encoding="utf-8")
+
+    with pytest.raises(ConfigurationError, match="dwd_station_id"):
+        load_config(path)
+
+
+def test_multiple_weather_providers_and_merge_priorities_are_configured(tmp_path):
+    path = write_test_config(tmp_path / "config.yaml")
+    text = path.read_text(encoding="utf-8")
+    text = text.replace(
+        "weather:\n",
+        "weather:\n"
+        "  providers:\n"
+        "    open-meteo: {}\n"
+        "    dwd: {}\n"
+        "  merge:\n"
+        "    tolerance_minutes: 20\n"
+        "    default_priority: [open-meteo, dwd]\n"
+        "    field_priority:\n"
+        "      temperature: [dwd, open-meteo]\n"
+        "      warnings: [dwd, open-meteo]\n",
+        1,
+    ).replace(
+        "    timezone: Europe/Berlin",
+        "    timezone: Europe/Berlin\n    weather:\n      dwd_station_id: G005",
+    )
+    path.write_text(text, encoding="utf-8")
+
+    config = load_config(path)
+    provider = create_weather_provider(config.weather)
+
+    assert tuple(item.name for item in config.weather.providers) == (
+        "open-meteo",
+        "dwd",
+    )
+    assert config.weather.merge.tolerance_minutes == 20
+    assert config.weather.merge.field_priority["temperature"] == (
+        "dwd",
+        "open-meteo",
+    )
+    assert isinstance(provider, MergedWeatherProvider)
+
+
+def test_merge_priority_rejects_unconfigured_provider(tmp_path):
+    path = write_test_config(tmp_path / "config.yaml")
+    text = path.read_text(encoding="utf-8").replace(
+        "weather:\n",
+        "weather:\n"
+        "  providers: [open-meteo]\n"
+        "  merge:\n"
+        "    default_priority: [dwd]\n",
+        1,
+    )
+    path.write_text(text, encoding="utf-8")
+
+    with pytest.raises(ConfigurationError, match="unconfigured providers"):
         load_config(path)

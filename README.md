@@ -10,7 +10,9 @@ Während der Wiedergabe besteht keine Abhängigkeit zum TTS- oder Wetterdienst.
 - beliebig viele Standorte ausschließlich über YAML konfigurierbar
 - halbstündliche und stündliche Ansagen mit standortspezifischen Templates
 - YAML-basierte deutsche und englische Sprachausgabe je Standort
-- Forecast für den geplanten Wiedergabezeitpunkt über Open-Meteo
+- Forecast für den geplanten Wiedergabezeitpunkt über Open-Meteo oder DWD
+- parallele, feldweise Zusammenführung mehrerer Wetterprovider mit Fallback
+- amtliche, stationsbezogene DWD-Warnmeldungen in Ansage-Templates
 - atomarer JSON-Wettercache mit konfigurierbarem Höchstalter
 - gTTS-Cloudausgabe sowie Piper und espeak-ng, frei als Primär- und Fallback-Provider kombinierbar
 - optionale Jingles, Stereo-Konvertierung, Loudness-Normalisierung und MP3-Encoding
@@ -59,8 +61,8 @@ Derzeit sind folgende Variablen implementiert:
 | `{dew_point}` | Vorhergesagter Taupunkt in Grad Celsius |
 | `{humidity}` | Relative Luftfeuchtigkeit in Prozent |
 | `{pressure}` | Luftdruck an der Oberfläche in Hektopascal |
-| `{weather_description}` | Lokalisierte Beschreibung des Open-Meteo-Wettercodes, zum Beispiel `teilweise bewölkt` |
-| `{weather_code}` | Numerischer Open-Meteo-Wettercode |
+| `{weather_description}` | Lokalisierte Beschreibung des providerunabhängigen WMO-Wettercodes, zum Beispiel `teilweise bewölkt` |
+| `{weather_code}` | Numerischer, intern vereinheitlichter WMO-Wettercode |
 | `{cloud_cover}` | Bewölkungsgrad in Prozent |
 | `{wind_speed}` | Windgeschwindigkeit in Kilometern pro Stunde |
 | `{wind_direction}` | Windrichtung als lokalisierte Himmelsrichtung, zum Beispiel `Südwesten` |
@@ -71,12 +73,97 @@ Derzeit sind folgende Variablen implementiert:
 | `{sunrise}` | Sonnenaufgang in den Zeitwörtern der Standortsprache, zum Beispiel `fünf Uhr achtundvierzig` |
 | `{sunset}` | Sonnenuntergang in den Zeitwörtern der Standortsprache |
 | `{forecast_time}` | Zeitpunkt der verwendeten Wetterdaten in den Zeitwörtern der Standortsprache |
+| `{warning_count}` | Anzahl der zum Wiedergabezeitpunkt aktiven DWD-Warnungen |
+| `{warning_level}` | DWD-Warnstufe der höchstpriorisierten aktiven Warnung |
+| `{warning_event}` | Ereignisbezeichnung der höchstpriorisierten Warnung |
+| `{warning_headline}` | Überschrift der höchstpriorisierten Warnung |
+| `{warning_description}` | Ausführliche Beschreibung der höchstpriorisierten Warnung |
+| `{warning_instruction}` | Handlungshinweis der höchstpriorisierten Warnung |
+| `{warning_start}` | Beginn der höchstpriorisierten Warnung in lokalisierten Zeitwörtern |
+| `{warning_end}` | Ende der höchstpriorisierten Warnung in lokalisierten Zeitwörtern |
+| `{warning_text}` | Überschriften aller aktiven Warnungen oder lokalisierter Hinweis, dass keine Warnung aktiv ist |
+| `{temperature_source}` | Provider des verwendeten Temperaturwerts, zum Beispiel `dwd` |
+| `{weather_source}` | Provider des verwendeten Wettercodes und der Wetterbeschreibung |
+| `{warning_source}` | Provider der höchstpriorisierten aktiven Warnung |
 
 Numerische Werte werden auf eine Nachkommastelle gerundet, überflüssige
 Nachkommastellen werden entfernt und das Dezimaltrennzeichen wird lokalisiert.
 Eine unbekannte Variable, eine Formatangabe wie `{temperature:.1f}` oder ein im
 konkreten Forecast nicht verfügbarer verwendeter Wert bricht die Generierung
 kontrolliert ab. Das bisher veröffentlichte Audio-Asset bleibt dabei erhalten.
+`{warning_count}` und `{warning_text}` sind immer belegt. Die übrigen Warnfelder
+sind nur verwendbar, wenn zum Wiedergabezeitpunkt mindestens eine entsprechende
+Warnung aktiv ist. Bei mehreren Warnungen liefert das Modul für die einzelnen
+Warnfelder die höchste Warnstufe; `{warning_text}` verbindet alle Überschriften.
+
+## Wetterprovider
+
+Open-Meteo bleibt der Standard und arbeitet direkt mit den Koordinaten eines
+Standorts. Der DWD-Provider verwendet die stationsbasierte WarnWetter-API. Beide
+Quellen können gleichzeitig abgefragt und feldweise zusammengeführt werden.
+Dafür muss jedem aktivierten Standort eine DWD-Stationskennung zugeordnet werden:
+
+```yaml
+weather:
+  providers:
+    open-meteo:
+      endpoint: https://api.open-meteo.com/v1/forecast
+    dwd:
+      endpoint: https://app-prod-ws.warnwetter.de/v30/stationOverviewExtended
+  update_interval_minutes: 30
+  max_cache_age_minutes: 60
+  request_timeout_seconds: 15
+  merge:
+    tolerance_minutes: 30
+    default_priority: [open-meteo, dwd]
+    field_priority:
+      temperature: [dwd, open-meteo]
+      humidity: [dwd, open-meteo]
+      pressure: [dwd, open-meteo]
+      warnings: [dwd, open-meteo]
+
+locations:
+  wittstock:
+    name: Wittstock
+    latitude: 53.16
+    longitude: 12.48
+    timezone: Europe/Berlin
+    weather:
+      dwd_station_id: G005
+    announcements:
+      full_hour:
+        template: >
+          Es ist {time} in {location}. {weather_description}.
+          {warning_text}.
+```
+
+Die Provider werden parallel abgerufen. Das Zeitraster stammt vom ersten
+verfügbaren Provider in `default_priority`; Werte der übrigen Quellen werden
+innerhalb von `tolerance_minutes` dem jeweils nächsten Zeitpunkt zugeordnet.
+Für jedes Feld wird der erste vorhandene Wert aus seiner `field_priority`
+verwendet. Nicht genannte Provider werden automatisch als Fallback angehängt.
+Eine Mittelwertbildung findet bewusst nicht statt. Warnungen werden vereinigt
+und Duplikate entsprechend der Warnpriorität entfernt. Wenn nur ein Provider
+erreichbar ist, wird dessen Ergebnis weiterverwendet; erst der Ausfall aller
+Provider lässt den Abruf fehlschlagen.
+
+Die bisherige Einzelprovider-Konfiguration bleibt gültig:
+
+```yaml
+weather:
+  provider: open-meteo
+  endpoint: https://api.open-meteo.com/v1/forecast
+```
+
+Die Stationskennung ist nicht die numerische `Stations_id` aus den
+Open-Data-Dateien. Geeignete Kennungen sind über die in der
+[DWD-API-Dokumentation](https://dwd.api.bund.dev/) verlinkte Stationsliste zu
+ermitteln. Temperaturen, Feuchte, Druck, Niederschlag und Wind werden aus den
+DWD-Zehntelwerten in die gleichen Einheiten wie bei Open-Meteo umgerechnet.
+Da die DWD-Antwort nicht alle Open-Meteo-Felder liefert, bleiben insbesondere
+`{apparent_temperature}`, `{cloud_cover}` und
+`{precipitation_probability}` beim DWD unbesetzt und sollten in
+DWD-spezifischen Templates nicht verwendet werden.
 
 ## Sprachen und Aussprachewörterbücher
 
@@ -88,7 +175,7 @@ zugehörigen YAML-Wörterbücher liegen unter `src/weatherbox/lang/`. Sie enthal
 - kontextabhängige Formen wie `ein Uhr` gegenüber `eins`
 - Zeit- und Datumsmuster sowie Monatsnamen
 - Dezimaltrennzeichen
-- Beschreibungen der Open-Meteo-Wettercodes
+- Beschreibungen der providerunabhängigen WMO-Wettercodes
 - 16 Windrichtungen
 
 Die Sprache kann für jeden Standort separat gewählt werden:
@@ -242,6 +329,14 @@ Weatherbox erzeugt keine Live-Audioausgabe. Eine neue Datei wird erst nach
 erfolgreicher TTS-Erzeugung, Audioverarbeitung und FFprobe-Validierung atomar an
 die stabile öffentliche Stelle verschoben. Schlägt ein Schritt fehl, bleibt das
 bisherige öffentliche Asset unverändert.
+
+Die Wetter-Implementierung liegt im Paket `src/weatherbox/weather/`:
+
+- `open_meteo.py` und `dwd.py` enthalten die Provider und ihre API-Abbildungen
+- `merged.py` richtet mehrere Quellen zeitlich aus und führt sie feldweise zusammen
+- `factory.py` baut den einzelnen oder zusammengeführten Provider aus YAML
+- `base.py` enthält die gemeinsame Schnittstelle
+- `cache.py` speichert Forecasts und Warnungen providerunabhängig
 
 Die TTS-Implementierung liegt im Paket `src/weatherbox/tts/`:
 

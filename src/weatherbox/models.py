@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from enum import StrEnum
 from pathlib import Path
@@ -43,6 +43,64 @@ class AnnouncementStatus(StrEnum):
 
 
 @dataclass(frozen=True, slots=True)
+class WeatherWarning:
+    """One official weather warning and its validity period."""
+
+    level: int
+    event: str
+    headline: str
+    start: datetime
+    end: datetime | None = None
+    description: str | None = None
+    instruction: str | None = None
+    source: str | None = None
+
+    def is_active(self, target: datetime) -> bool:
+        """Return whether the warning is valid at ``target``."""
+        return self.start <= target and (self.end is None or target <= self.end)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize the warning to JSON-compatible values."""
+        return {
+            "level": self.level,
+            "event": self.event,
+            "headline": self.headline,
+            "start": self.start.isoformat(),
+            "end": self.end.isoformat() if self.end else None,
+            "description": self.description,
+            "instruction": self.instruction,
+            "source": self.source,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> WeatherWarning:
+        """Create a warning from its serialized dictionary representation."""
+        values = dict(data)
+        values["start"] = datetime.fromisoformat(values["start"])
+        if values.get("end"):
+            values["end"] = datetime.fromisoformat(values["end"])
+        return cls(**values)
+
+
+WEATHER_VALUE_FIELDS = (
+    "temperature",
+    "apparent_temperature",
+    "dew_point",
+    "humidity",
+    "pressure",
+    "weather_code",
+    "cloud_cover",
+    "precipitation",
+    "precipitation_probability",
+    "wind_speed",
+    "wind_direction",
+    "wind_gusts",
+    "sunrise",
+    "sunset",
+)
+
+
+@dataclass(frozen=True, slots=True)
 class WeatherData:
     """Weather values associated with a single forecast timestamp."""
 
@@ -61,13 +119,33 @@ class WeatherData:
     wind_gusts: float | None = None
     sunrise: datetime | None = None
     sunset: datetime | None = None
+    warnings: tuple[WeatherWarning, ...] = ()
+    data_sources: tuple[tuple[str, str], ...] = ()
+
+    def source_for(self, field_name: str) -> str | None:
+        """Return the provider that supplied a weather field."""
+        return dict(self.data_sources).get(field_name)
+
+    def with_source(self, source: str) -> WeatherData:
+        """Record ``source`` for every populated weather field."""
+        sources = tuple(
+            (name, source)
+            for name in WEATHER_VALUE_FIELDS
+            if getattr(self, name) is not None
+        )
+        return replace(self, data_sources=sources)
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize the forecast to JSON-compatible values."""
         result: dict[str, Any] = {}
         for name in self.__dataclass_fields__:
             value = getattr(self, name)
-            result[name] = value.isoformat() if isinstance(value, datetime) else value
+            if name == "warnings":
+                result[name] = [warning.to_dict() for warning in value]
+            elif name == "data_sources":
+                result[name] = dict(value)
+            else:
+                result[name] = value.isoformat() if isinstance(value, datetime) else value
         return result
 
     @classmethod
@@ -77,6 +155,13 @@ class WeatherData:
         for name in ("forecast_at", "sunrise", "sunset"):
             if values.get(name):
                 values[name] = datetime.fromisoformat(values[name])
+        values["warnings"] = tuple(
+            WeatherWarning.from_dict(item) for item in values.get("warnings", [])
+        )
+        raw_sources = values.get("data_sources", {})
+        values["data_sources"] = tuple(
+            (str(name), str(source)) for name, source in raw_sources.items()
+        )
         return cls(**values)
 
 
@@ -86,6 +171,7 @@ class ForecastBundle:
 
     fetched_at: datetime
     forecasts: tuple[WeatherData, ...]
+    warnings: tuple[WeatherWarning, ...] = ()
 
     def for_time(self, target: datetime, tolerance_minutes: int = 90) -> WeatherData | None:
         """Return the forecast nearest to ``target`` within the given tolerance."""
@@ -94,6 +180,8 @@ class ForecastBundle:
         nearest = min(self.forecasts, key=lambda item: abs((item.forecast_at - target).total_seconds()))
         if abs((nearest.forecast_at - target).total_seconds()) > tolerance_minutes * 60:
             return None
+        if self.warnings and nearest.warnings != self.warnings:
+            return replace(nearest, warnings=self.warnings)
         return nearest
 
 
@@ -118,6 +206,7 @@ class Location:
     announcements: dict[AnnouncementKind, AnnouncementSpec]
     jingles: dict[AnnouncementKind, Path | None] = field(default_factory=dict)
     language: str = "de"
+    dwd_station_id: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

@@ -8,7 +8,7 @@ import tempfile
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from weatherbox.models import ForecastBundle, WeatherData
+from weatherbox.models import ForecastBundle, WeatherData, WeatherWarning
 
 
 class WeatherCache:
@@ -28,6 +28,7 @@ class WeatherCache:
         payload = {
             "fetched_at": bundle.fetched_at.isoformat(),
             "forecasts": [item.to_dict() for item in bundle.forecasts],
+            "warnings": [warning.to_dict() for warning in bundle.warnings],
         }
         fd, temporary_name = tempfile.mkstemp(prefix=f".{location_id}-", suffix=".tmp", dir=self.directory)
         temporary = Path(temporary_name)
@@ -46,9 +47,23 @@ class WeatherCache:
             payload = json.loads(self.path_for(location_id).read_text(encoding="utf-8"))
             fetched_at = datetime.fromisoformat(payload["fetched_at"])
             forecasts = tuple(WeatherData.from_dict(item) for item in payload["forecasts"])
-            if fetched_at.tzinfo is None or any(item.forecast_at.tzinfo is None for item in forecasts):
+            warnings = tuple(
+                WeatherWarning.from_dict(item) for item in payload.get("warnings", [])
+            )
+            invalid_warning_time = any(
+                warning.start.tzinfo is None
+                or (warning.end is not None and warning.end.tzinfo is None)
+                for warning in warnings
+            )
+            if (
+                fetched_at.tzinfo is None
+                or any(item.forecast_at.tzinfo is None for item in forecasts)
+                or invalid_warning_time
+            ):
                 return None
-            return ForecastBundle(fetched_at=fetched_at, forecasts=forecasts)
+            return ForecastBundle(
+                fetched_at=fetched_at, forecasts=forecasts, warnings=warnings
+            )
         except (OSError, ValueError, TypeError, KeyError, json.JSONDecodeError):
             return None
 

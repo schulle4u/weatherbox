@@ -27,7 +27,7 @@ from weatherbox.scheduler import Scheduler, next_playback
 from weatherbox.state import StateStore
 from weatherbox.templates import build_context, render_template
 from weatherbox.tts import FallbackTTSProvider, create_tts_provider
-from weatherbox.weather import OpenMeteoProvider, WeatherCache
+from weatherbox.weather import WeatherCache, create_weather_provider
 from weatherbox.weather.base import WeatherProvider
 
 
@@ -49,9 +49,7 @@ class WeatherboxService:
         """Initialize services, using injected adapters where provided."""
         self.config = config
         self.now_fn = now_fn or (lambda: datetime.now().astimezone())
-        self.weather_provider = weather_provider or OpenMeteoProvider(
-            config.weather.endpoint, config.weather.request_timeout_seconds
-        )
+        self.weather_provider = weather_provider or create_weather_provider(config.weather)
         self.weather_cache = WeatherCache(config.output.cache_dir)
         self.languages = LanguageCatalog(config.localization.directory)
         self._injected_tts_provider = tts_provider
@@ -258,6 +256,9 @@ class WeatherboxService:
         return {
             "status": "ok" if all(value["valid"] for value in caches.values()) else "degraded",
             "locations": len(self.config.enabled_locations),
+            "weather_providers": [
+                provider.name for provider in self.config.weather.providers
+            ],
             "weather_cache": caches,
             "tts_provider": self.config.tts.provider,
             "languages": {

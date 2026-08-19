@@ -87,6 +87,17 @@ weather:
     95: thunderstorm
     96: thunderstorm with slight hail
     99: thunderstorm with heavy hail
+    68: slight sleet
+    69: heavy sleet
+    79: ice pellets
+    83: slight sleet showers
+    84: heavy sleet showers
+    87: slight snow pellet showers
+    88: heavy snow pellet showers
+
+warnings:
+  none: no official weather warning is active
+  separator: "; "
 
 wind:
   directions:
