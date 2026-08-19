@@ -30,12 +30,12 @@ def test_fallback_provider_is_used(tmp_path, caplog):
     provider = FallbackTTSProvider(FakeTTS("piper", fails=True), FakeTTS("espeak-ng"))
     provider.synthesize("Hallo", tmp_path / "out.wav")
     assert provider.last_provider == "espeak-ng"
-    assert "Fallback" in caplog.text
+    assert "Using TTS fallback" in caplog.text
 
 
 def test_both_providers_fail(tmp_path):
     provider = FallbackTTSProvider(FakeTTS("piper", True), FakeTTS("espeak-ng", True))
-    with pytest.raises(TTSGenerationError, match="Fallback fehlgeschlagen"):
+    with pytest.raises(TTSGenerationError, match="Fallback failed"):
         provider.synthesize("Hallo", tmp_path / "out.wav")
 
 

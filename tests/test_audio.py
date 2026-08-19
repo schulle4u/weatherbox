@@ -39,7 +39,7 @@ def test_ffprobe_rejects_mono_output(tmp_path, settings, monkeypatch):
         "run",
         lambda *args, **kwargs: subprocess.CompletedProcess(args[0], 0, stdout=json.dumps(payload), stderr=""),
     )
-    with pytest.raises(AudioProcessingError, match="Kanalzahl"):
+    with pytest.raises(AudioProcessingError, match="unexpected channel count"):
         AudioPipeline(settings).validate(path)
 
 
@@ -53,4 +53,3 @@ def test_ffmpeg_failure_is_reported(tmp_path, settings, monkeypatch):
     )
     with pytest.raises(AudioProcessingError, match="codec error"):
         AudioPipeline(settings).process(speech, tmp_path / "out.mp3")
-

@@ -17,7 +17,7 @@ def test_load_config_and_resolve_paths(tmp_path):
 def test_non_stereo_configuration_is_rejected(tmp_path):
     path = write_test_config(tmp_path / "config.yaml")
     path.write_text(path.read_text(encoding="utf-8").replace("channels: 2", "channels: 1"), encoding="utf-8")
-    with pytest.raises(ConfigurationError, match="Stereo"):
+    with pytest.raises(ConfigurationError, match="stereo"):
         load_config(path)
 
 
@@ -44,7 +44,7 @@ def test_unsafe_location_id_is_rejected(tmp_path):
     longitude: 10.0
     timezone: Europe/Berlin
 """
-    with pytest.raises(ConfigurationError, match="Standort-ID"):
+    with pytest.raises(ConfigurationError, match="location ID"):
         load_config(write_test_config(tmp_path / "config.yaml", locations))
 
 
@@ -54,7 +54,7 @@ def test_unknown_timezone_is_rejected(tmp_path):
         path.read_text(encoding="utf-8").replace("Europe/Berlin", "Nowhere/Invalid"),
         encoding="utf-8",
     )
-    with pytest.raises(ConfigurationError, match="Zeitzone"):
+    with pytest.raises(ConfigurationError, match="time zone"):
         load_config(path)
 
 

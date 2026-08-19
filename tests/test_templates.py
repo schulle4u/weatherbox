@@ -12,7 +12,7 @@ def test_render_valid_template(location, weather, now, german_formatter):
 
 def test_unknown_variable_fails(location, weather, now, german_formatter):
     context = build_context(location, now, weather, german_formatter)
-    with pytest.raises(TemplateRenderError, match="Unbekannte"):
+    with pytest.raises(TemplateRenderError, match="Unknown template variables"):
         render_template("{not_a_field}", context)
 
 

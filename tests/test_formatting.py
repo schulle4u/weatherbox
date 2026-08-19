@@ -43,7 +43,7 @@ def test_compound_numbers_use_ein(number, expected):
 
 
 def test_weather_codes_and_wind_direction():
-    assert weather_description(0) == "klar"
+    assert weather_description(0) == "der Himmel ist klar"
     assert weather_description(95) == "Gewitter"
     assert weather_description(123) == "Wettercode 123"
     assert wind_direction_name(0) == "Norden"

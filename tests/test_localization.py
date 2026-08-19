@@ -18,7 +18,7 @@ def test_builtin_german_language_preserves_pronunciation():
     assert german.format_time(value) == "einundzwanzig Uhr fünf"
     assert german.format_date(value) == "18. August 2026"
     assert german.format_decimal(18.2) == "18,2"
-    assert german.weather_description(2) == "teilweise bewölkt"
+    assert german.weather_description(2) == "der Himmel ist teilweise bewölkt"
     assert german.wind_direction(225) == "Südwesten"
 
 
@@ -56,5 +56,5 @@ def test_exact_number_overrides_support_irregular_languages(tmp_path):
 
 def test_incomplete_language_file_is_rejected(tmp_path):
     (tmp_path / "broken.yaml").write_text("code: broken\n", encoding="utf-8")
-    with pytest.raises(ConfigurationError, match="Pflichtfeld"):
+    with pytest.raises(ConfigurationError, match="Required field"):
         LanguageCatalog(tmp_path)
