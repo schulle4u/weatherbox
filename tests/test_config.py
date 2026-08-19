@@ -4,7 +4,7 @@ from conftest import write_test_config
 from weatherbox.config import load_config
 from weatherbox.errors import ConfigurationError
 from weatherbox.models import AnnouncementKind
-from weatherbox.tts import EspeakProvider, PiperProvider, create_tts_provider
+from weatherbox.tts import EspeakProvider, GTTSProvider, PiperProvider, create_tts_provider
 
 
 def test_load_config_and_resolve_paths(tmp_path):
@@ -81,3 +81,55 @@ def test_location_language_and_tts_voice_can_be_overridden(tmp_path):
     assert provider.primary.settings.model == tmp_path / "english.onnx"
     assert isinstance(provider.fallback, EspeakProvider)
     assert provider.fallback.settings.voice == "en-gb"
+
+
+def test_gtts_can_be_configured_with_language_override(tmp_path):
+    path = write_test_config(tmp_path / "config.yaml")
+    text = path.read_text(encoding="utf-8")
+    text = text.replace("provider: piper", "provider: gtts")
+    text = text.replace(
+        "  piper:\n    model: model.onnx",
+        "  gtts:\n"
+        "    language: de\n"
+        "    tld: de\n"
+        "    timeout_seconds: 8.5\n"
+        "  piper:\n"
+        "    model: model.onnx\n"
+        "  languages:\n"
+        "    en:\n"
+        "      gtts:\n"
+        "        language: en\n"
+        "        tld: co.uk",
+    )
+    path.write_text(text, encoding="utf-8")
+
+    config = load_config(path)
+    provider = create_tts_provider(config.tts, "en")
+
+    assert isinstance(provider.primary, GTTSProvider)
+    assert provider.primary.settings.language == "en"
+    assert provider.primary.settings.tld == "co.uk"
+    assert provider.primary.settings.timeout_seconds == 8.5
+
+
+def test_gtts_uses_location_language_without_explicit_override(tmp_path):
+    path = write_test_config(tmp_path / "config.yaml")
+    text = path.read_text(encoding="utf-8").replace("provider: piper", "provider: gtts")
+    path.write_text(text, encoding="utf-8")
+
+    provider = create_tts_provider(load_config(path).tts, "en")
+
+    assert isinstance(provider.primary, GTTSProvider)
+    assert provider.primary.settings.language == "en"
+
+
+def test_gtts_timeout_must_be_positive(tmp_path):
+    path = write_test_config(tmp_path / "config.yaml")
+    text = path.read_text(encoding="utf-8").replace(
+        "  piper:\n    model: model.onnx",
+        "  gtts:\n    timeout_seconds: 0\n  piper:\n    model: model.onnx",
+    )
+    path.write_text(text, encoding="utf-8")
+
+    with pytest.raises(ConfigurationError, match="timeout_seconds"):
+        load_config(path)

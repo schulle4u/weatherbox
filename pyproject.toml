@@ -11,6 +11,7 @@ requires-python = ">=3.11"
 license = "MIT"
 authors = [{ name = "Weatherbox contributors" }]
 dependencies = [
+    "gTTS>=2.5,<3",
     "PyYAML>=6.0.2",
     "tzdata>=2025.2; platform_system == 'Windows'",
 ]

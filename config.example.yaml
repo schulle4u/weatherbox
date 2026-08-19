@@ -21,8 +21,15 @@ scheduler:
     max_attempts: 5
 
 tts:
-  provider: piper
-  fallback_provider: espeak-ng
+  # Cloud-Ausgabe per gTTS mit lokalem Piper-Fallback. Alternativ sind auch
+  # piper und espeak-ng als primärer oder sekundärer Provider möglich.
+  provider: gtts
+  fallback_provider: piper
+  gtts:
+    language: de
+    tld: de
+    slow: false
+    timeout_seconds: 15
   piper:
     executable: piper
     model: models/de_DE-kerstin-low.onnx
@@ -38,6 +45,9 @@ tts:
   #       model: models/en_GB-alba-medium.onnx
   #     espeak-ng:
   #       voice: en-gb
+  #     gtts:
+  #       language: en
+  #       tld: co.uk
 
 audio:
   ffmpeg: ffmpeg

@@ -75,6 +75,16 @@ class EspeakSettings:
 
 
 @dataclass(frozen=True, slots=True)
+class GTTSSettings:
+    """Google Translate TTS language, host, and request settings."""
+
+    language: str
+    tld: str
+    slow: bool
+    timeout_seconds: float
+
+
+@dataclass(frozen=True, slots=True)
 class TTSSettings:
     """Text-to-speech providers and language-specific overrides."""
 
@@ -82,6 +92,7 @@ class TTSSettings:
     fallback_provider: str | None
     piper: PiperSettings
     espeak: EspeakSettings
+    gtts: GTTSSettings
     languages: dict[str, "TTSLanguageSettings"]
 
 
@@ -91,6 +102,8 @@ class TTSLanguageSettings:
 
     piper_model: Path | None
     espeak_voice: str | None
+    gtts_language: str | None
+    gtts_tld: str | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -172,6 +185,17 @@ def _positive(value: Any, path: str, *, allow_zero: bool = False) -> int:
     return number
 
 
+def _positive_float(value: Any, path: str) -> float:
+    """Parse and validate a positive configuration number."""
+    try:
+        number = float(value)
+    except (TypeError, ValueError) as exc:
+        raise ConfigurationError(f"'{path}' must be a number") from exc
+    if number <= 0:
+        raise ConfigurationError(f"'{path}' must be greater than zero")
+    return number
+
+
 def _resolve(base: Path, value: str | Path) -> Path:
     """Resolve a configured path relative to the configuration directory."""
     path = Path(value).expanduser()
@@ -199,6 +223,7 @@ def load_config(path: str | Path) -> Config:
     tts = _mapping(raw, "tts")
     piper = _mapping(tts, "piper")
     espeak = _mapping(tts, "espeak-ng")
+    gtts = _mapping(tts, "gtts")
     audio = _mapping(raw, "audio")
     loudness = _mapping(audio, "loudness")
     audio_output = _mapping(audio, "output")
@@ -284,9 +309,9 @@ def load_config(path: str | Path) -> Config:
 
     provider = str(tts.get("provider", "piper"))
     fallback = tts.get("fallback_provider", "espeak-ng")
-    valid_providers = {"piper", "espeak-ng"}
+    valid_providers = {"piper", "espeak-ng", "gtts"}
     if provider not in valid_providers or (fallback is not None and fallback not in valid_providers):
-        raise ConfigurationError("TTS provider must be 'piper' or 'espeak-ng'")
+        raise ConfigurationError("TTS provider must be 'piper', 'espeak-ng', or 'gtts'")
 
     tts_languages_raw = _mapping(tts, "languages")
     tts_languages: dict[str, TTSLanguageSettings] = {}
@@ -296,11 +321,16 @@ def load_config(path: str | Path) -> Config:
             raise ConfigurationError(f"tts.languages.{language_code} must be an object")
         piper_override = _mapping(override_raw, "piper")
         espeak_override = _mapping(override_raw, "espeak-ng")
+        gtts_override = _mapping(override_raw, "gtts")
         model_value = piper_override.get("model")
         voice_value = espeak_override.get("voice")
+        gtts_language_value = gtts_override.get("language")
+        gtts_tld_value = gtts_override.get("tld")
         tts_languages[str(language_code)] = TTSLanguageSettings(
             piper_model=_resolve(base, model_value) if model_value else None,
             espeak_voice=str(voice_value) if voice_value else None,
+            gtts_language=str(gtts_language_value) if gtts_language_value else None,
+            gtts_tld=str(gtts_tld_value) if gtts_tld_value else None,
         )
 
     if str(audio_output.get("format", "mp3")).lower() != "mp3":
@@ -343,6 +373,14 @@ def load_config(path: str | Path) -> Config:
                 executable=str(espeak.get("executable", "espeak-ng")),
                 voice=str(espeak.get("voice", "de")),
                 speed=_positive(espeak.get("speed", 155), "tts.espeak-ng.speed"),
+            ),
+            gtts=GTTSSettings(
+                language=str(gtts.get("language", default_language)),
+                tld=str(gtts.get("tld", "com")),
+                slow=bool(gtts.get("slow", False)),
+                timeout_seconds=_positive_float(
+                    gtts.get("timeout_seconds", 15), "tts.gtts.timeout_seconds"
+                ),
             ),
             languages=tts_languages,
         ),

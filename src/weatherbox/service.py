@@ -143,7 +143,9 @@ class WeatherboxService:
                 dir=self.config.output.generated_dir,
             ) as temporary_dir:
                 temporary = Path(temporary_dir)
-                speech_path = temporary / "speech.wav"
+                # Providers may produce WAV (Piper/eSpeak) or MP3 (gTTS).
+                # FFmpeg detects the actual input format from the file contents.
+                speech_path = temporary / "speech.audio"
                 mp3_path = temporary / "announcement.mp3"
                 tts_provider = self._tts_for_language(item.location.language)
                 tts_provider.synthesize(text, speech_path)

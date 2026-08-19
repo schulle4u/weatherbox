@@ -7,7 +7,7 @@ import subprocess
 from pathlib import Path
 from typing import Protocol
 
-from weatherbox.config import EspeakSettings, PiperSettings, TTSSettings
+from weatherbox.config import EspeakSettings, GTTSSettings, PiperSettings, TTSSettings
 from weatherbox.errors import TTSGenerationError
 
 
@@ -20,7 +20,7 @@ class TTSProvider(Protocol):
     name: str
 
     def synthesize(self, text: str, output_path: Path) -> None:
-        """Synthesize ``text`` into a WAV file at ``output_path``."""
+        """Synthesize ``text`` into an audio file at ``output_path``."""
         ...
 
 
@@ -64,6 +64,33 @@ class EspeakProvider:
         ]
         _run(command, provider=self.name)
         _validate_wave_output(output_path, self.name)
+
+
+class GTTSProvider:
+    """Generate MP3 speech through Google Translate using the gTTS library."""
+
+    name = "gtts"
+
+    def __init__(self, settings: GTTSSettings) -> None:
+        """Initialize the provider with language and request settings."""
+        self.settings = settings
+
+    def synthesize(self, text: str, output_path: Path) -> None:
+        """Generate and validate an MP3 file using the gTTS Python API."""
+        try:
+            from gtts import gTTS
+
+            speech = gTTS(
+                text=text,
+                lang=self.settings.language,
+                tld=self.settings.tld,
+                slow=self.settings.slow,
+                timeout=self.settings.timeout_seconds,
+            )
+            speech.save(str(output_path))
+        except Exception as exc:
+            raise TTSGenerationError(f"{self.name} request failed: {exc}") from exc
+        _validate_mp3_output(output_path, self.name)
 
 
 class FallbackTTSProvider:
@@ -112,9 +139,20 @@ def create_tts_provider(settings: TTSSettings, language: str | None = None) -> F
         voice=override.espeak_voice if override and override.espeak_voice else settings.espeak.voice,
         speed=settings.espeak.speed,
     )
+    gtts_settings = GTTSSettings(
+        language=(
+            override.gtts_language
+            if override and override.gtts_language
+            else language or settings.gtts.language
+        ),
+        tld=override.gtts_tld if override and override.gtts_tld else settings.gtts.tld,
+        slow=settings.gtts.slow,
+        timeout_seconds=settings.gtts.timeout_seconds,
+    )
     providers: dict[str, TTSProvider] = {
         "piper": PiperProvider(piper_settings),
         "espeak-ng": EspeakProvider(espeak_settings),
+        "gtts": GTTSProvider(gtts_settings),
     }
     return FallbackTTSProvider(
         primary=providers[settings.provider],
@@ -144,3 +182,15 @@ def _validate_wave_output(path: Path, provider: str) -> None:
     """Ensure a provider created a file large enough to contain a WAV header."""
     if not path.is_file() or path.stat().st_size < 44:
         raise TTSGenerationError(f"{provider} has not generated a valid WAV file")
+
+
+def _validate_mp3_output(path: Path, provider: str) -> None:
+    """Ensure a provider created a non-empty file with an MP3 header."""
+    try:
+        header = path.read_bytes()[:3]
+    except OSError as exc:
+        raise TTSGenerationError(f"{provider} has not generated a valid MP3 file") from exc
+    has_id3_header = header == b"ID3"
+    has_mpeg_frame = len(header) >= 2 and header[0] == 0xFF and header[1] & 0xE0 == 0xE0
+    if path.stat().st_size <= 3 or not (has_id3_header or has_mpeg_frame):
+        raise TTSGenerationError(f"{provider} has not generated a valid MP3 file")

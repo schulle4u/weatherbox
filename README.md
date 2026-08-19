@@ -12,7 +12,7 @@ Während der Wiedergabe besteht keine Abhängigkeit zum TTS- oder Wetterdienst.
 - YAML-basierte deutsche und englische Sprachausgabe je Standort
 - Forecast für den geplanten Wiedergabezeitpunkt über Open-Meteo
 - atomarer JSON-Wettercache mit konfigurierbarem Höchstalter
-- Piper als primärer TTS-Provider, optionaler Fallback auf espeak-ng
+- gTTS-Cloudausgabe sowie Piper und espeak-ng, frei als Primär- und Fallback-Provider kombinierbar
 - optionale Jingles, Stereo-Konvertierung, Loudness-Normalisierung und MP3-Encoding
 - technische MP3-Prüfung mit FFprobe vor jeder Veröffentlichung
 - versionierte Assets und stabile öffentliche Dateinamen
@@ -22,7 +22,8 @@ Während der Wiedergabe besteht keine Abhängigkeit zum TTS- oder Wetterdienst.
 ## Installation
 
 Vorausgesetzt werden Python 3.11 oder neuer sowie die Systemprogramme `ffmpeg`,
-`ffprobe`, Piper und optional `espeak-ng`.
+`ffprobe` sowie – je nach Konfiguration – Piper und/oder `espeak-ng`. gTTS wird
+als Python-Abhängigkeit mitinstalliert und benötigt zur Erzeugung Internetzugang.
 
 ```bash
 python3 -m venv .venv
@@ -31,7 +32,8 @@ python -m pip install -e '.[dev]'
 cp config.example.yaml config.yaml
 ```
 
-In `config.yaml` müssen insbesondere das Piper-Modell, Jingle-Pfade und die
+In `config.yaml` müssen insbesondere der TTS-Provider, gegebenenfalls das
+Piper-Modell, Jingle-Pfade und die
 Ausgabeverzeichnisse angepasst werden. Nicht gewünschte Jingles können durch
 Entfernen der jeweiligen YAML-Werte deaktiviert werden.
 Standort-IDs sind URL- und dateisystemsichere Slugs aus Buchstaben, Zahlen,
@@ -128,13 +130,43 @@ unvollständige Sprachdateien werden bereits beim Programmstart abgelehnt.
 Templates werden bewusst nicht automatisch übersetzt. Für einen anderssprachigen
 Standort muss daher ein passendes Standort-Template konfiguriert werden.
 
-Damit Piper beziehungsweise espeak-ng die richtige Stimme verwenden, können die
-TTS-Einstellungen ebenfalls je Sprache überschrieben werden:
+## Cloud-Sprachausgabe mit gTTS
+
+Für die einfachste Cloud-Ausgabe verwendet Weatherbox die Python-API von gTTS
+direkt; `gtts-cli` wird nicht als Unterprozess gestartet. gTTS greift auf den
+Text-to-Speech-Dienst von Google Translate zu und liefert MP3-Daten. Es handelt
+sich nicht um die kostenpflichtige Google-Cloud-Text-to-Speech-API und es wird
+kein API-Schlüssel benötigt. Da der zugrunde liegende Dienst nicht von gTTS
+garantiert wird, empfiehlt sich ein lokaler Fallback:
 
 ```yaml
 tts:
-  provider: piper
-  fallback_provider: espeak-ng
+  provider: gtts
+  fallback_provider: piper
+  gtts:
+    language: de
+    tld: de
+    slow: false
+    timeout_seconds: 15
+  piper:
+    executable: piper
+    model: models/de_DE-kerstin-low.onnx
+```
+
+`language` ist der gTTS-Sprachcode. `tld` wählt die Google-Domain und kann die
+regionale Aussprache beeinflussen. Bei Netzwerk-, Timeout- oder Dienstfehlern
+wird automatisch der konfigurierte Fallback verwendet.
+
+Damit gTTS, Piper beziehungsweise espeak-ng die richtige Stimme verwenden,
+können die TTS-Einstellungen ebenfalls je Sprache überschrieben werden:
+
+```yaml
+tts:
+  provider: gtts
+  fallback_provider: piper
+  gtts:
+    language: de
+    tld: de
   piper:
     model: models/de_DE-kerstin-low.onnx
   espeak-ng:
@@ -145,9 +177,14 @@ tts:
         model: models/en_GB-alba-medium.onnx
       espeak-ng:
         voice: en-gb
+      gtts:
+        language: en
+        tld: co.uk
 ```
 
 Fehlt eine sprachabhängige TTS-Einstellung, wird der globale Wert verwendet.
+Nur bei gTTS wird `language` automatisch aus der Standortsprache übernommen;
+ein expliziter sprachabhängiger Wert kann diese Zuordnung überschreiben.
 
 ## CLI
 
