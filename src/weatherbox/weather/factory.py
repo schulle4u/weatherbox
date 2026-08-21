@@ -14,12 +14,10 @@ if TYPE_CHECKING:
 
 
 def create_weather_provider(settings: WeatherSettings) -> WeatherProvider:
-    """Build a provider from validated weather settings."""
+    """Build the merged provider from validated weather settings."""
     providers = tuple(
         (provider.name, _create_provider(provider)) for provider in settings.providers
     )
-    if len(providers) == 1:
-        return providers[0][1]
     return MergedWeatherProvider(
         providers,
         default_priority=settings.merge.default_priority,

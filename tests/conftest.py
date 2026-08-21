@@ -77,6 +77,8 @@ def write_test_config(path: Path, locations: str = "") -> Path:
 """
     text = f"""
 weather:
+  providers:
+    open-meteo: {{}}
   update_interval_minutes: 30
   max_cache_age_minutes: 60
 scheduler:

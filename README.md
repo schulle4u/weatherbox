@@ -98,10 +98,11 @@ Warnfelder die höchste Warnstufe; `{warning_text}` verbindet alle Überschrifte
 
 ## Wetterprovider
 
-Open-Meteo bleibt der Standard und arbeitet direkt mit den Koordinaten eines
-Standorts. Der DWD-Provider verwendet die stationsbasierte WarnWetter-API. Beide
-Quellen können gleichzeitig abgefragt und feldweise zusammengeführt werden.
-Dafür muss jedem aktivierten Standort eine DWD-Stationskennung zugeordnet werden:
+Weatherbox bezieht Wetterdaten aus den unter `weather.providers` konfigurierten
+Quellen. Open-Meteo arbeitet direkt mit den Koordinaten eines Standorts, der
+DWD-Provider mit der stationsbasierten WarnWetter-API. Die Quellen werden
+feldweise zusammengeführt. Sobald DWD konfiguriert ist, benötigt jeder aktive
+Standort eine DWD-Stationskennung:
 
 ```yaml
 weather:
@@ -129,7 +130,8 @@ locations:
     longitude: 12.48
     timezone: Europe/Berlin
     weather:
-      dwd_station_id: G005
+      # WarnWetter-/MOS-Kennung für Wittstock-Rote Mühle
+      dwd_station_id: F143
     announcements:
       full_hour:
         template: >
@@ -147,19 +149,17 @@ und Duplikate entsprechend der Warnpriorität entfernt. Wenn nur ein Provider
 erreichbar ist, wird dessen Ergebnis weiterverwendet; erst der Ausfall aller
 Provider lässt den Abruf fehlschlagen.
 
-Die bisherige Einzelprovider-Konfiguration bleibt gültig:
-
-```yaml
-weather:
-  provider: open-meteo
-  endpoint: https://api.open-meteo.com/v1/forecast
-```
-
-Die Stationskennung ist nicht die numerische `Stations_id` aus den
-Open-Data-Dateien. Geeignete Kennungen sind über die in der
-[DWD-API-Dokumentation](https://dwd.api.bund.dev/) verlinkte Stationsliste zu
-ermitteln. Temperaturen, Feuchte, Druck, Niederschlag und Wind werden aus den
-DWD-Zehntelwerten in die gleichen Einheiten wie bei Open-Meteo umgerechnet.
+Die Stationskennung ist nicht automatisch die numerische `Stations_id` aus den
+CDC-Open-Data-Dateien. `stationOverviewExtended` liefert nur WarnWetter-/MOS-
+Stationen; phänologische Kennungen wie `12471` für Wittstock/Dosse funktionieren
+dort nicht. Für den konfigurierten Standort Wittstock ist `F143`
+(`Wittstock-Rote Mühle`) eine passende Kennung. Geeignete MOS-Kennungen lassen
+sich ersatzweise im frei zugänglichen
+[Stationskatalog von Tiny Weather Forecast Germany](https://tinyweatherforecastgermanygroup.gitlab.io/index/stations.html)
+recherchieren, falls die in der
+[DWD-API-Dokumentation](https://dwd.api.bund.dev/) verlinkte DWD-Liste nicht
+erreichbar ist. Temperaturen, Feuchte, Druck, Niederschlag und Wind werden aus
+den DWD-Zehntelwerten in die gleichen Einheiten wie bei Open-Meteo umgerechnet.
 Da die DWD-Antwort nicht alle Open-Meteo-Felder liefert, bleiben insbesondere
 `{apparent_temperature}`, `{cloud_cover}` und
 `{precipitation_probability}` beim DWD unbesetzt und sollten in

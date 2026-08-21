@@ -69,21 +69,6 @@ class WeatherSettings:
     providers: tuple[WeatherProviderSettings, ...]
     merge: WeatherMergeSettings
 
-    @property
-    def provider(self) -> str:
-        """Return the first provider name for legacy callers."""
-        return self.providers[0].name
-
-    @property
-    def endpoint(self) -> str:
-        """Return the first provider endpoint for legacy callers."""
-        return self.providers[0].endpoint
-
-    @property
-    def request_timeout_seconds(self) -> float:
-        """Return the first provider timeout for legacy callers."""
-        return self.providers[0].request_timeout_seconds
-
 
 @dataclass(frozen=True, slots=True)
 class RetrySettings:
@@ -246,6 +231,17 @@ def _resolve(base: Path, value: str | Path) -> Path:
     return path if path.is_absolute() else (base / path).resolve()
 
 
+def _reject_unknown_keys(
+    raw: dict[str, Any], allowed: set[str], path: str
+) -> None:
+    """Reject misspelled or obsolete configuration keys."""
+    unknown = set(raw) - allowed
+    if unknown:
+        raise ConfigurationError(
+            f"Unknown settings at '{path}': {', '.join(sorted(unknown))}"
+        )
+
+
 def _weather_priority(
     raw: Any,
     path: str,
@@ -266,60 +262,53 @@ def _weather_priority(
 
 
 def _weather_settings(raw: dict[str, Any]) -> WeatherSettings:
-    """Parse legacy or multi-provider weather configuration."""
+    """Parse weather providers and their merge configuration."""
+    _reject_unknown_keys(
+        raw,
+        {
+            "providers",
+            "merge",
+            "update_interval_minutes",
+            "max_cache_age_minutes",
+            "request_timeout_seconds",
+        },
+        "weather",
+    )
     global_timeout = _positive_float(
         raw.get("request_timeout_seconds", 15), "weather.request_timeout_seconds"
     )
+    providers_raw = raw.get("providers")
+    if not isinstance(providers_raw, dict) or not providers_raw:
+        raise ConfigurationError(
+            "'weather.providers' must be a non-empty YAML object"
+        )
+
     providers: list[WeatherProviderSettings] = []
-    if "providers" in raw:
-        if "provider" in raw or "endpoint" in raw:
+    for raw_name, options in providers_raw.items():
+        if options is None:
+            options = {}
+        if not isinstance(options, dict):
             raise ConfigurationError(
-                "Use either 'weather.provider'/'weather.endpoint' or 'weather.providers'"
+                f"'weather.providers.{raw_name}' must be a YAML object"
             )
-        providers_raw = raw["providers"]
-        if isinstance(providers_raw, list):
-            entries = [(str(name), {}) for name in providers_raw]
-        elif isinstance(providers_raw, dict):
-            entries = []
-            for name, options in providers_raw.items():
-                if options is None:
-                    options = {}
-                if not isinstance(options, dict):
-                    raise ConfigurationError(
-                        f"'weather.providers.{name}' must be a YAML object"
-                    )
-                entries.append((str(name), options))
-        else:
-            raise ConfigurationError(
-                "'weather.providers' must be a YAML list or object"
-            )
-        if not entries:
-            raise ConfigurationError("At least one weather provider is required")
-        for raw_name, options in entries:
-            name = raw_name.lower()
-            if name not in WEATHER_PROVIDER_ENDPOINTS:
-                raise ConfigurationError(
-                    f"Unknown weather provider '{raw_name}'; expected 'open-meteo' or 'dwd'"
-                )
-            providers.append(
-                WeatherProviderSettings(
-                    name=name,
-                    endpoint=str(options.get("endpoint", WEATHER_PROVIDER_ENDPOINTS[name])),
-                    request_timeout_seconds=_positive_float(
-                        options.get("request_timeout_seconds", global_timeout),
-                        f"weather.providers.{name}.request_timeout_seconds",
-                    ),
-                )
-            )
-    else:
-        name = str(raw.get("provider", "open-meteo")).lower()
+        name = str(raw_name).lower()
         if name not in WEATHER_PROVIDER_ENDPOINTS:
-            raise ConfigurationError("Weather provider must be 'open-meteo' or 'dwd'")
+            raise ConfigurationError(
+                f"Unknown weather provider '{raw_name}'; expected 'open-meteo' or 'dwd'"
+            )
+        _reject_unknown_keys(
+            options,
+            {"endpoint", "request_timeout_seconds"},
+            f"weather.providers.{name}",
+        )
         providers.append(
             WeatherProviderSettings(
                 name=name,
-                endpoint=str(raw.get("endpoint", WEATHER_PROVIDER_ENDPOINTS[name])),
-                request_timeout_seconds=global_timeout,
+                endpoint=str(options.get("endpoint", WEATHER_PROVIDER_ENDPOINTS[name])),
+                request_timeout_seconds=_positive_float(
+                    options.get("request_timeout_seconds", global_timeout),
+                    f"weather.providers.{name}.request_timeout_seconds",
+                ),
             )
         )
 
@@ -327,6 +316,11 @@ def _weather_settings(raw: dict[str, Any]) -> WeatherSettings:
     if len(set(provider_names)) != len(provider_names):
         raise ConfigurationError("'weather.providers' must not contain duplicates")
     merge_raw = _mapping(raw, "merge")
+    _reject_unknown_keys(
+        merge_raw,
+        {"tolerance_minutes", "default_priority", "field_priority"},
+        "weather.merge",
+    )
     default_priority = _weather_priority(
         merge_raw.get("default_priority", list(provider_names)),
         "weather.merge.default_priority",

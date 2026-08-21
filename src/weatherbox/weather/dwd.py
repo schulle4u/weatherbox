@@ -69,7 +69,13 @@ class DWDProvider:
     ) -> ForecastBundle:
         """Convert a DWD station response into the internal forecast model."""
         zone = ZoneInfo(timezone)
-        station = payload[station_id]
+        station = payload.get(station_id)
+        if station is None:
+            raise ValueError(
+                f"DWD station '{station_id}' was not returned; "
+                "stationOverviewExtended requires a WarnWetter/MOS station code, "
+                "not a CDC station ID"
+            )
         forecast = station["forecast1"]
         start = _timestamp(forecast["start"], zone)
         step = timedelta(milliseconds=int(forecast["timeStep"]))

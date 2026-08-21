@@ -83,7 +83,7 @@ def test_dwd_payload_maps_forecast_units_daily_values_and_warning():
 
 
 def test_dwd_payload_requires_requested_station():
-    with pytest.raises(KeyError):
+    with pytest.raises(ValueError, match="WarnWetter/MOS station code"):
         DWDProvider._parse({}, "missing", "Europe/Berlin")
 
 

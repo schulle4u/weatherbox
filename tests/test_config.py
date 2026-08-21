@@ -139,25 +139,26 @@ def test_gtts_timeout_must_be_positive(tmp_path):
 def test_dwd_weather_provider_and_station_are_configured(tmp_path):
     path = write_test_config(tmp_path / "config.yaml")
     text = path.read_text(encoding="utf-8")
-    text = text.replace("weather:\n", "weather:\n  provider: dwd\n", 1).replace(
+    text = text.replace("    open-meteo: {}", "    dwd: {}", 1).replace(
         "    timezone: Europe/Berlin",
-        "    timezone: Europe/Berlin\n    weather:\n      dwd_station_id: G005",
+        "    timezone: Europe/Berlin\n    weather:\n      dwd_station_id: F143",
     )
     path.write_text(text, encoding="utf-8")
 
     config = load_config(path)
     provider = create_weather_provider(config.weather)
 
-    assert config.weather.provider == "dwd"
-    assert config.locations["wittstock"].dwd_station_id == "G005"
-    assert isinstance(provider, DWDProvider)
-    assert provider.endpoint.endswith("stationOverviewExtended")
+    assert tuple(item.name for item in config.weather.providers) == ("dwd",)
+    assert config.locations["wittstock"].dwd_station_id == "F143"
+    assert isinstance(provider, MergedWeatherProvider)
+    assert isinstance(provider.providers[0][1], DWDProvider)
+    assert provider.providers[0][1].endpoint.endswith("stationOverviewExtended")
 
 
 def test_dwd_provider_requires_station_for_enabled_location(tmp_path):
     path = write_test_config(tmp_path / "config.yaml")
     text = path.read_text(encoding="utf-8").replace(
-        "weather:\n", "weather:\n  provider: dwd\n", 1
+        "    open-meteo: {}", "    dwd: {}", 1
     )
     path.write_text(text, encoding="utf-8")
 
@@ -169,8 +170,8 @@ def test_multiple_weather_providers_and_merge_priorities_are_configured(tmp_path
     path = write_test_config(tmp_path / "config.yaml")
     text = path.read_text(encoding="utf-8")
     text = text.replace(
-        "weather:\n",
-        "weather:\n"
+        "  providers:\n"
+        "    open-meteo: {}\n",
         "  providers:\n"
         "    open-meteo: {}\n"
         "    dwd: {}\n"
@@ -183,7 +184,7 @@ def test_multiple_weather_providers_and_merge_priorities_are_configured(tmp_path
         1,
     ).replace(
         "    timezone: Europe/Berlin",
-        "    timezone: Europe/Berlin\n    weather:\n      dwd_station_id: G005",
+        "    timezone: Europe/Berlin\n    weather:\n      dwd_station_id: F143",
     )
     path.write_text(text, encoding="utf-8")
 
@@ -205,9 +206,10 @@ def test_multiple_weather_providers_and_merge_priorities_are_configured(tmp_path
 def test_merge_priority_rejects_unconfigured_provider(tmp_path):
     path = write_test_config(tmp_path / "config.yaml")
     text = path.read_text(encoding="utf-8").replace(
-        "weather:\n",
-        "weather:\n"
-        "  providers: [open-meteo]\n"
+        "  providers:\n"
+        "    open-meteo: {}\n",
+        "  providers:\n"
+        "    open-meteo: {}\n"
         "  merge:\n"
         "    default_priority: [dwd]\n",
         1,
@@ -215,4 +217,18 @@ def test_merge_priority_rejects_unconfigured_provider(tmp_path):
     path.write_text(text, encoding="utf-8")
 
     with pytest.raises(ConfigurationError, match="unconfigured providers"):
+        load_config(path)
+
+
+def test_singular_weather_provider_keys_are_rejected(tmp_path):
+    path = write_test_config(tmp_path / "config.yaml")
+    text = path.read_text(encoding="utf-8").replace(
+        "  providers:\n    open-meteo: {}\n",
+        "  provider: open-meteo\n"
+        "  endpoint: https://api.open-meteo.com/v1/forecast\n",
+        1,
+    )
+    path.write_text(text, encoding="utf-8")
+
+    with pytest.raises(ConfigurationError, match="Unknown settings at 'weather'"):
         load_config(path)
