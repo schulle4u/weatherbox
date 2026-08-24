@@ -17,6 +17,7 @@ def test_builtin_german_language_preserves_pronunciation():
     assert german.format_number(21) == "einundzwanzig"
     assert german.format_time(value) == "einundzwanzig Uhr fünf"
     assert german.format_date(value) == "18. August 2026"
+    assert german.greeting(value) == "Guten Abend"
     assert german.format_decimal(18.2) == "18,2"
     assert german.weather_description(2) == "der Himmel ist teilweise bewölkt"
     assert german.wind_direction(225) == "Südwesten"
@@ -28,6 +29,7 @@ def test_builtin_english_language_formats_complete_context_values():
     assert english.format_number(21) == "twenty-one"
     assert english.format_time(value) == "twenty-one oh five"
     assert english.format_date(value) == "August 18, 2026"
+    assert english.greeting(value) == "Good evening"
     assert english.format_decimal(18.2) == "18.2"
     assert english.weather_description(2) == "partly cloudy"
     assert english.wind_direction(225) == "southwest"
@@ -37,10 +39,13 @@ def test_custom_language_file_can_override_builtin_language(tmp_path):
     source = resources.files("weatherbox").joinpath("lang", "de.yaml")
     data = yaml.safe_load(source.read_text(encoding="utf-8"))
     data["numbers"]["ones"][2] = "zwo"
+    data["greetings"]["day"] = "Mahlzeit"
     (tmp_path / "de.yaml").write_text(
         yaml.safe_dump(data, allow_unicode=True, sort_keys=False), encoding="utf-8"
     )
-    assert LanguageCatalog(tmp_path).get("de").format_number(2) == "zwo"
+    german = LanguageCatalog(tmp_path).get("de")
+    assert german.format_number(2) == "zwo"
+    assert german.greeting(datetime(2026, 8, 18, 12, 0)) == "Mahlzeit"
 
 
 def test_exact_number_overrides_support_irregular_languages(tmp_path):

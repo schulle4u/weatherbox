@@ -49,6 +49,7 @@ Derzeit sind folgende Variablen implementiert:
 
 | Variable | Inhalt und Ausgabeformat |
 | --- | --- |
+| `{greeting}` | Begrüßung nach lokaler Standortzeit: morgens bis 11:59 Uhr, tagsüber ab 12:00 Uhr und abends ab 18:00 Uhr; die Texte werden in der Sprachdatei unter `greetings` konfiguriert |
 | `{time}` | Geplante Wiedergabezeit in Wörtern der Standortsprache, zum Beispiel `vierzehn Uhr dreißig` |
 | `{hour}` | Stunde der geplanten Wiedergabe in Wörtern der Standortsprache, zum Beispiel `vierzehn` |
 | `{minute}` | Minute der geplanten Wiedergabe als Zahl, zum Beispiel `30` |

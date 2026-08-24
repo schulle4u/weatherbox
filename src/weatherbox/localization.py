@@ -48,6 +48,15 @@ class DateRules:
 
 
 @dataclass(frozen=True, slots=True)
+class GreetingRules:
+    """Language-specific greetings for the local time of day."""
+
+    morning: str
+    day: str
+    evening: str
+
+
+@dataclass(frozen=True, slots=True)
 class LanguageFormatter:
     """Format numbers, dates, times, and weather terms for one language."""
 
@@ -55,6 +64,7 @@ class LanguageFormatter:
     numbers: NumberRules
     time: TimeRules
     date: DateRules
+    greetings: GreetingRules
     weather_descriptions: dict[int, str]
     unknown_weather: str
     wind_directions: tuple[str, ...]
@@ -105,6 +115,14 @@ class LanguageFormatter:
             month=self.date.months[value.month - 1],
             year=value.year,
         )
+
+    def greeting(self, value: datetime) -> str:
+        """Return the greeting for the local hour represented by ``value``."""
+        if value.hour < 12:
+            return self.greetings.morning
+        if value.hour < 18:
+            return self.greetings.day
+        return self.greetings.evening
 
     def format_decimal(self, value: float | int | None) -> str | None:
         """Format an optional number with at most one fractional digit."""
@@ -204,6 +222,11 @@ def _parse_language(raw: Any, source: str) -> LanguageFormatter:
         if len(months) != 12 or not all(months):
             raise ConfigurationError(f"date.months must contain exactly 12 entries: {source}")
 
+        greetings_raw = _required_mapping(raw, "greetings", source)
+        morning_greeting = _required_text(greetings_raw, "morning", source)
+        day_greeting = _required_text(greetings_raw, "day", source)
+        evening_greeting = _required_text(greetings_raw, "evening", source)
+
         weather_raw = _required_mapping(raw, "weather", source)
         weather_descriptions = _optional_integer_words(weather_raw["descriptions"], source)
         unknown_weather = _validated_pattern(weather_raw["unknown"], {"code"}, source)
@@ -238,6 +261,11 @@ def _parse_language(raw: Any, source: str) -> LanguageFormatter:
             hour_mode=hour_mode,
         ),
         date=DateRules(pattern=date_pattern, months=months),
+        greetings=GreetingRules(
+            morning=morning_greeting,
+            day=day_greeting,
+            evening=evening_greeting,
+        ),
         weather_descriptions=weather_descriptions,
         unknown_weather=unknown_weather,
         wind_directions=wind_directions,
@@ -251,6 +279,14 @@ def _required_mapping(parent: dict[str, Any], key: str, source: str) -> dict[str
     value = parent[key]
     if not isinstance(value, dict):
         raise ConfigurationError(f"'{key}' must be an object: {source}")
+    return value
+
+
+def _required_text(parent: dict[str, Any], key: str, source: str) -> str:
+    """Return a required non-empty text value from a language definition."""
+    value = str(parent[key]).strip()
+    if not value:
+        raise ConfigurationError(f"'{key}' must not be empty: {source}")
     return value
 
 

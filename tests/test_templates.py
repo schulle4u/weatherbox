@@ -13,6 +13,26 @@ def test_render_valid_template(location, weather, now, german_formatter):
     assert result == "vierzehn Uhr in Wittstock: 18,2 Grad, Wind aus Südwesten."
 
 
+@pytest.mark.parametrize(
+    ("hour", "expected"),
+    [
+        (0, "Guten Morgen"),
+        (11, "Guten Morgen"),
+        (12, "Guten Tag"),
+        (17, "Guten Tag"),
+        (18, "Guten Abend"),
+        (23, "Guten Abend"),
+    ],
+)
+def test_greeting_uses_location_playback_hour(
+    location, weather, now, german_formatter, hour, expected
+):
+    playback_at = now.replace(hour=hour, minute=30)
+    context = build_context(location, playback_at, weather, german_formatter)
+
+    assert render_template("{greeting}, {location}!", context) == f"{expected}, Wittstock!"
+
+
 def test_unknown_variable_fails(location, weather, now, german_formatter):
     context = build_context(location, now, weather, german_formatter)
     with pytest.raises(TemplateRenderError, match="Unknown template variables"):

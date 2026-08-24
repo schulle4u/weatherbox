@@ -60,6 +60,11 @@ date:
     - November
     - Dezember
 
+greetings:
+  morning: "Guten Morgen"
+  day: "Guten Tag"
+  evening: "Guten Abend"
+
 weather:
   unknown: "Wettercode {code}"
   descriptions:

@@ -13,7 +13,7 @@ from weatherbox.models import Location, WeatherData
 
 ALLOWED_FIELDS = frozenset(
     {
-        "time", "hour", "minute", "date", "location", "latitude", "longitude",
+        "greeting", "time", "hour", "minute", "date", "location", "latitude", "longitude",
         "temperature", "apparent_temperature", "dew_point", "humidity", "pressure",
         "weather_description", "weather_code", "cloud_cover", "wind_speed",
         "wind_direction", "wind_direction_degrees", "wind_gusts", "precipitation",
@@ -33,6 +33,7 @@ def build_context(
 ) -> dict[str, Any]:
     """Build the localized placeholder values for an announcement template."""
     context: dict[str, Any] = {
+        "greeting": formatter.greeting(playback_at),
         "time": formatter.format_time(playback_at),
         "hour": formatter.format_hour(playback_at.hour),
         "minute": formatter.format_decimal(playback_at.minute),
