@@ -41,7 +41,11 @@ class AssetManager:
         public_temp: Path | None = None
         try:
             os.replace(version_temp, asset.versioned_path)
-            public_temp = self._copy_to_temporary(asset.versioned_path, asset.public_path.parent)
+            public_temp = self._copy_to_temporary(
+                asset.versioned_path,
+                asset.public_path.parent,
+                mode=0o644,
+            )
             os.replace(public_temp, asset.public_path)
         except OSError as exc:
             raise AssetPublicationError(f"The asset could not be published atomically: {exc}") from exc
@@ -52,7 +56,7 @@ class AssetManager:
         return asset
 
     @staticmethod
-    def _copy_to_temporary(source: Path, target_dir: Path) -> Path:
+    def _copy_to_temporary(source: Path, target_dir: Path, *, mode: int | None = None) -> Path:
         """Copy a source file to a flushed temporary file in ``target_dir``."""
         fd, name = tempfile.mkstemp(prefix=".weatherbox-", suffix=".mp3", dir=target_dir)
         os.close(fd)
@@ -62,6 +66,8 @@ class AssetManager:
             # Windows only permits FlushFileBuffers through a writable handle.
             with temporary.open("r+b") as handle:
                 os.fsync(handle.fileno())
+            if mode is not None:
+                temporary.chmod(mode)
             return temporary
         except Exception:
             temporary.unlink(missing_ok=True)

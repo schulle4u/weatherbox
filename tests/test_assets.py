@@ -1,3 +1,5 @@
+import os
+import stat
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -22,6 +24,20 @@ def test_versioned_and_public_asset_are_published(tmp_path):
     assert asset.public_path.name == "full-hour.mp3"
 
 
+@pytest.mark.skipif(os.name != "posix", reason="POSIX file modes are required")
+def test_public_asset_is_world_readable(tmp_path):
+    manager = AssetManager(tmp_path / "generated", tmp_path / "public")
+    source = tmp_path / "source.mp3"
+    source.write_bytes(b"new audio")
+    playback = datetime(2026, 8, 18, 14, tzinfo=ZoneInfo("Europe/Berlin"))
+    asset = manager.paths("wittstock", AnnouncementKind.FULL_HOUR, playback)
+
+    manager.publish(source, asset)
+
+    assert stat.S_IMODE(asset.public_path.stat().st_mode) == 0o644
+    assert stat.S_IMODE(asset.versioned_path.stat().st_mode) == 0o600
+
+
 def test_invalid_source_keeps_existing_public_asset(tmp_path):
     manager = AssetManager(tmp_path / "generated", tmp_path / "public")
     playback = datetime(2026, 8, 18, 14, tzinfo=ZoneInfo("Europe/Berlin"))
@@ -33,4 +49,3 @@ def test_invalid_source_keeps_existing_public_asset(tmp_path):
         manager.publish(tmp_path / "missing.mp3", asset)
 
     assert asset.public_path.read_bytes() == b"old audio"
-
