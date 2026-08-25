@@ -13,6 +13,30 @@ def test_load_config_and_resolve_paths(tmp_path):
     assert config.locations["wittstock"].name == "Wittstock"
     assert config.output.public_dir == tmp_path / "runtime/public"
     assert config.locations["wittstock"].announcements[AnnouncementKind.FULL_HOUR].enabled
+    assert config.output.generated_retention_days is None
+
+
+def test_generated_asset_retention_can_be_configured(tmp_path):
+    path = write_test_config(tmp_path / "config.yaml")
+    text = path.read_text(encoding="utf-8").replace(
+        "  generated_dir: runtime/generated",
+        "  generated_dir: runtime/generated\n  generated_retention_days: 30",
+    )
+    path.write_text(text, encoding="utf-8")
+
+    assert load_config(path).output.generated_retention_days == 30
+
+
+def test_generated_asset_retention_must_be_positive(tmp_path):
+    path = write_test_config(tmp_path / "config.yaml")
+    text = path.read_text(encoding="utf-8").replace(
+        "  generated_dir: runtime/generated",
+        "  generated_dir: runtime/generated\n  generated_retention_days: 0",
+    )
+    path.write_text(text, encoding="utf-8")
+
+    with pytest.raises(ConfigurationError, match="generated_retention_days"):
+        load_config(path)
 
 
 def test_non_stereo_configuration_is_rejected(tmp_path):

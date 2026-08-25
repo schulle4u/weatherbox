@@ -1,6 +1,6 @@
 import os
 import stat
-from datetime import datetime
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -49,3 +49,44 @@ def test_invalid_source_keeps_existing_public_asset(tmp_path):
         manager.publish(tmp_path / "missing.mp3", asset)
 
     assert asset.public_path.read_bytes() == b"old audio"
+
+
+def test_cleanup_deletes_expired_files_and_empty_directories(tmp_path):
+    generated = tmp_path / "generated"
+    manager = AssetManager(generated, tmp_path / "public")
+    now = datetime(2026, 8, 18, 14, tzinfo=ZoneInfo("Europe/Berlin"))
+    expired = generated / "wittstock" / "2026-07-01" / "14-00-full.mp3"
+    current = generated / "wittstock" / "2026-08-18" / "14-00-full.mp3"
+    expired.parent.mkdir(parents=True)
+    current.parent.mkdir(parents=True)
+    expired.write_bytes(b"old audio")
+    current.write_bytes(b"current audio")
+    expired_timestamp = (now - timedelta(days=31)).timestamp()
+    os.utime(expired, (expired_timestamp, expired_timestamp))
+
+    result = manager.cleanup(30, now=now)
+
+    assert result == {
+        "deleted_files": 1,
+        "deleted_directories": 1,
+        "freed_bytes": len(b"old audio"),
+    }
+    assert not expired.exists()
+    assert not expired.parent.exists()
+    assert current.read_bytes() == b"current audio"
+
+
+def test_cleanup_does_not_touch_public_assets(tmp_path):
+    generated = tmp_path / "generated"
+    public = tmp_path / "public" / "wittstock" / "full-hour.mp3"
+    manager = AssetManager(generated, tmp_path / "public")
+    now = datetime(2026, 8, 18, 14, tzinfo=ZoneInfo("Europe/Berlin"))
+    public.parent.mkdir(parents=True)
+    public.write_bytes(b"published audio")
+    old_timestamp = (now - timedelta(days=31)).timestamp()
+    os.utime(public, (old_timestamp, old_timestamp))
+
+    result = manager.cleanup(30, now=now)
+
+    assert result["deleted_files"] == 0
+    assert public.read_bytes() == b"published audio"

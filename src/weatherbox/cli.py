@@ -24,6 +24,14 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers.add_parser("run", help="Generate all currently due announcements")
     subparsers.add_parser("weather-update", help="Update weather cache for all locations")
     subparsers.add_parser("status", help="Output status as JSON")
+    cleanup = subparsers.add_parser(
+        "cleanup-generated", help="Delete expired files from the generated asset directory"
+    )
+    cleanup.add_argument(
+        "--older-than-days",
+        type=int,
+        help="Override output.generated_retention_days for this cleanup",
+    )
 
     for command, help_text in (
         ("generate-half-hour", "Generate the next half-hourly announcement for all locations"),
@@ -69,6 +77,8 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "status":
             print(json.dumps(service.status(), ensure_ascii=False, indent=2))
             return 0
+        elif args.command == "cleanup-generated":
+            results = service.cleanup_generated(args.older_than_days)
         else:
             at = _parse_time(args.at)
             if args.command == "generate-half-hour":

@@ -1,3 +1,5 @@
+import os
+from dataclasses import replace
 from datetime import timedelta
 from pathlib import Path
 
@@ -55,6 +57,32 @@ def test_end_to_end_generation_publishes_both_asset_paths(tmp_path, now, weather
     asset = service.generate(item)
     assert asset.public_path.read_bytes() == b"valid fake mp3"
     assert asset.versioned_path.is_file()
+
+
+def test_run_due_cleans_generated_assets_when_retention_is_configured(
+    tmp_path, now, weather
+):
+    config = load_config(write_test_config(tmp_path / "config.yaml"))
+    config = replace(
+        config,
+        output=replace(config.output, generated_retention_days=30),
+    )
+    run_at = now.replace(minute=1)
+    expired = config.output.generated_dir / "wittstock" / "2026-07-01" / "old.mp3"
+    expired.parent.mkdir(parents=True)
+    expired.write_bytes(b"old audio")
+    expired_timestamp = (run_at - timedelta(days=31)).timestamp()
+    os.utime(expired, (expired_timestamp, expired_timestamp))
+    service = WeatherboxService(
+        config,
+        weather_provider=FakeWeatherProvider(run_at, weather),
+        tts_provider=FakeTTS(),
+        audio_pipeline=FakeAudio(),
+        now_fn=lambda: run_at,
+    )
+
+    assert service.run_due() == {}
+    assert not expired.exists()
 
 
 def test_stale_cache_and_provider_failure_keeps_existing_asset(tmp_path, now, weather):

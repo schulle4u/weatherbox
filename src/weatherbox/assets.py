@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import shutil
 import tempfile
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from weatherbox.errors import AssetPublicationError
@@ -54,6 +55,49 @@ class AssetManager:
             if public_temp:
                 public_temp.unlink(missing_ok=True)
         return asset
+
+    def cleanup(self, retention_days: int, *, now: datetime) -> dict[str, int]:
+        """Delete generated files older than the configured retention period."""
+        if retention_days < 1:
+            raise ValueError("retention_days must be at least 1")
+        if not self.generated_dir.exists():
+            return {"deleted_files": 0, "deleted_directories": 0, "freed_bytes": 0}
+
+        cutoff = (now - timedelta(days=retention_days)).timestamp()
+        deleted_files = 0
+        freed_bytes = 0
+        for path in self.generated_dir.rglob("*"):
+            try:
+                if not path.is_file():
+                    continue
+                stat_result = path.stat()
+                if stat_result.st_mtime >= cutoff:
+                    continue
+                path.unlink()
+                deleted_files += 1
+                freed_bytes += stat_result.st_size
+            except FileNotFoundError:
+                # A concurrent generator or cleanup may already have removed it.
+                continue
+
+        directories = sorted(
+            (path for path in self.generated_dir.rglob("*") if path.is_dir()),
+            key=lambda path: len(path.parts),
+            reverse=True,
+        )
+        deleted_directories = 0
+        for path in directories:
+            try:
+                path.rmdir()
+                deleted_directories += 1
+            except OSError:
+                # Non-empty directories and directories in active use are preserved.
+                continue
+        return {
+            "deleted_files": deleted_files,
+            "deleted_directories": deleted_directories,
+            "freed_bytes": freed_bytes,
+        }
 
     @staticmethod
     def _copy_to_temporary(source: Path, target_dir: Path, *, mode: int | None = None) -> Path:

@@ -166,10 +166,11 @@ class AudioSettings:
 
 @dataclass(frozen=True, slots=True)
 class OutputSettings:
-    """Filesystem destinations for caches, assets, and state."""
+    """Filesystem destinations and generated asset retention settings."""
 
     cache_dir: Path
     generated_dir: Path
+    generated_retention_days: int | None
     public_dir: Path
     state_dir: Path
 
@@ -385,6 +386,17 @@ def load_config(path: str | Path) -> Config:
     loudness = _mapping(audio, "loudness")
     audio_output = _mapping(audio, "output")
     output = _mapping(raw, "output")
+    _reject_unknown_keys(
+        output,
+        {
+            "cache_dir",
+            "generated_dir",
+            "generated_retention_days",
+            "public_dir",
+            "state_dir",
+        },
+        "output",
+    )
 
     default_announcements = _mapping(raw, "announcements")
     jingles_section = _mapping(audio, "jingles")
@@ -569,6 +581,14 @@ def load_config(path: str | Path) -> Config:
         output=OutputSettings(
             cache_dir=_resolve(base, output.get("cache_dir", "var/cache")),
             generated_dir=_resolve(base, output.get("generated_dir", "var/generated")),
+            generated_retention_days=(
+                _positive(
+                    output["generated_retention_days"],
+                    "output.generated_retention_days",
+                )
+                if output.get("generated_retention_days") is not None
+                else None
+            ),
             public_dir=_resolve(base, output.get("public_dir", "var/public")),
             state_dir=_resolve(base, output.get("state_dir", "var/state")),
         ),

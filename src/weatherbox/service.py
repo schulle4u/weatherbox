@@ -182,6 +182,14 @@ class WeatherboxService:
 
     def run_due(self) -> dict[str, str]:
         """Generate all currently due announcements and return per-item results."""
+        if self.config.output.generated_retention_days is not None:
+            try:
+                self.cleanup_generated()
+            except WeatherboxError as exc:
+                LOG.warning(
+                    "Generated asset cleanup failed; continuing with generation",
+                    extra={"error": str(exc)},
+                )
         now = self.now_fn()
         due = self.scheduler.due(self.config.enabled_locations, now)
         results: dict[str, str] = {}
@@ -196,6 +204,25 @@ class WeatherboxService:
                     extra={"location_id": item.location.id, "kind": item.kind.value},
                 )
         return results
+
+    def cleanup_generated(self, retention_days: int | None = None) -> dict[str, int]:
+        """Remove expired files from the generated asset directory."""
+        days = (
+            retention_days
+            if retention_days is not None
+            else self.config.output.generated_retention_days
+        )
+        if days is None:
+            raise WeatherboxError(
+                "No retention period configured; set "
+                "'output.generated_retention_days' or use '--older-than-days'"
+            )
+        try:
+            result = self.assets.cleanup(days, now=self.now_fn())
+        except (OSError, ValueError) as exc:
+            raise WeatherboxError(f"Generated assets could not be cleaned up: {exc}") from exc
+        LOG.info("Generated asset cleanup completed", extra=result)
+        return result
 
     def _tts_for_language(self, language: str) -> FallbackTTSProvider:
         """Return the injected or cached TTS provider for a language."""

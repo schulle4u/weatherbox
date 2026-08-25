@@ -82,6 +82,9 @@ audio:
 output:
   cache_dir: var/cache
   generated_dir: var/generated
+  # Alte generierte Assets vor jedem regulären Lauf löschen. Weglassen oder null
+  # verwenden, um die automatische Bereinigung zu deaktivieren.
+  generated_retention_days: 30
   public_dir: var/public
   state_dir: var/state
 

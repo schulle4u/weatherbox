@@ -284,6 +284,8 @@ wb-announcer --config config.yaml generate-full-hour
 wb-announcer --config config.yaml generate-location wittstock
 wb-announcer --config config.yaml generate-all
 wb-announcer --config config.yaml generate-time wittstock full_hour --at 2026-08-18T14:00:00+02:00
+wb-announcer --config config.yaml cleanup-generated
+wb-announcer --config config.yaml cleanup-generated --older-than-days 30
 wb-announcer --config config.yaml status
 ```
 
@@ -303,6 +305,15 @@ var/public/wittstock/full-hour.mp3
 
 Nur die stabilen Dateien unter `public_dir` werden durch Caddy oder nginx
 ausgeliefert. Python stellt selbst keinen öffentlichen Webserver bereit.
+
+Mit `output.generated_retention_days` kann eine Aufbewahrungsdauer für Dateien
+unter `generated_dir` festgelegt werden. Vor jedem `run` löscht Weatherbox
+Dateien, deren letzter Änderungszeitpunkt weiter zurückliegt, und entfernt danach
+leere Unterverzeichnisse. Der Wert `30` entspricht dabei 30 Tagen. Fehlt die
+Einstellung oder ist sie `null`, ist die automatische Bereinigung deaktiviert.
+`cleanup-generated` löst die Bereinigung manuell aus; mit
+`--older-than-days` lässt sich die konfigurierte Frist einmalig überschreiben.
+Dateien unter `public_dir` werden dabei nicht verändert.
 
 ## Tests
 
