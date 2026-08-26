@@ -76,8 +76,19 @@ audio:
     bitrate: 192k
   jingles:
     # Relative Pfade werden relativ zu dieser Konfigurationsdatei aufgelöst.
-    half_hour: assets/jingle-short.wav
-    full_hour: assets/jingle-full.wav
+    # Alle drei Dateien sind optional.
+    half_hour:
+      intro: assets/jingle-short.wav
+      outro: assets/outro.wav
+      music: assets/music.wav
+    full_hour:
+      intro: assets/jingle-full.wav
+      outro: assets/outro.wav
+      music: assets/music.wav
+    # Absenkung des Musikbetts in dB (muss <= 0 sein).
+    music_attenuation: -10
+    # Dauer des Ausfadens nach dem Ende der Ansage in Sekunden.
+    music_fade_out: 2.5
 
 output:
   cache_dir: var/cache
@@ -122,4 +133,6 @@ locations:
     #     template: "Es ist {time} in {location}. Die Temperatur: {temperature} Grad."
     # audio:
     #   jingles:
-    #     half_hour: assets/wittstock-short.wav
+    #     half_hour:
+    #       intro: assets/wittstock-short.wav
+    #       music: assets/wittstock-music.wav

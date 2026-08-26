@@ -16,6 +16,7 @@ from weatherbox.models import (
     WEATHER_VALUE_FIELDS,
     AnnouncementKind,
     AnnouncementSpec,
+    JingleAssets,
     Location,
 )
 
@@ -162,6 +163,8 @@ class AudioSettings:
     ffprobe: str
     loudness: LoudnessSettings
     output: AudioOutputSettings
+    music_attenuation_db: float = -10.0
+    music_fade_out_seconds: float = 2.5
 
 
 @dataclass(frozen=True, slots=True)
@@ -223,6 +226,17 @@ def _positive_float(value: Any, path: str) -> float:
         raise ConfigurationError(f"'{path}' must be a number") from exc
     if number <= 0:
         raise ConfigurationError(f"'{path}' must be greater than zero")
+    return number
+
+
+def _number(value: Any, path: str) -> float:
+    """Parse a finite configuration number."""
+    try:
+        number = float(value)
+    except (TypeError, ValueError) as exc:
+        raise ConfigurationError(f"'{path}' must be a number") from exc
+    if not -float("inf") < number < float("inf"):
+        raise ConfigurationError(f"'{path}' must be a finite number")
     return number
 
 
@@ -400,11 +414,36 @@ def load_config(path: str | Path) -> Config:
 
     default_announcements = _mapping(raw, "announcements")
     jingles_section = _mapping(audio, "jingles")
-    default_jingles = (
-        _mapping(jingles_section, "defaults")
-        if "defaults" in jingles_section
-        else jingles_section
+    _reject_unknown_keys(
+        jingles_section,
+        {kind.value for kind in AnnouncementKind}
+        | {"music_attenuation", "music_fade_out"},
+        "audio.jingles",
     )
+    default_jingles: dict[AnnouncementKind, dict[str, Any]] = {}
+    for kind in AnnouncementKind:
+        values = _mapping(jingles_section, kind.value)
+        _reject_unknown_keys(
+            values, {"intro", "outro", "music"}, f"audio.jingles.{kind.value}"
+        )
+        default_jingles[kind] = values
+
+    music_attenuation = _number(
+        jingles_section.get("music_attenuation", -10),
+        "audio.jingles.music_attenuation",
+    )
+    if music_attenuation > 0:
+        raise ConfigurationError(
+            "'audio.jingles.music_attenuation' must be zero or negative"
+        )
+    music_fade_out = _number(
+        jingles_section.get("music_fade_out", 2.5),
+        "audio.jingles.music_fade_out",
+    )
+    if music_fade_out < 0:
+        raise ConfigurationError(
+            "'audio.jingles.music_fade_out' must be zero or positive"
+        )
     locations_raw = _mapping(raw, "locations")
     if not locations_raw:
         raise ConfigurationError("At least one entry is required at 'locations'")
@@ -473,10 +512,26 @@ def load_config(path: str | Path) -> Config:
                 f"Location '{location_id}': weather.dwd_station_id is required for DWD"
             )
         location_jingles = _mapping(location_audio, "jingles")
-        jingles: dict[AnnouncementKind, Path | None] = {}
+        _reject_unknown_keys(
+            location_jingles,
+            {kind.value for kind in AnnouncementKind},
+            f"locations.{location_id}.audio.jingles",
+        )
+        jingles: dict[AnnouncementKind, JingleAssets] = {}
         for kind in AnnouncementKind:
-            value = location_jingles.get(kind.value, default_jingles.get(kind.value))
-            jingles[kind] = _resolve(base, value) if value else None
+            override = _mapping(location_jingles, kind.value)
+            _reject_unknown_keys(
+                override,
+                {"intro", "outro", "music"},
+                f"locations.{location_id}.audio.jingles.{kind.value}",
+            )
+            values = dict(default_jingles[kind])
+            values.update(override)
+            jingles[kind] = JingleAssets(
+                intro=_resolve(base, values["intro"]) if values.get("intro") else None,
+                outro=_resolve(base, values["outro"]) if values.get("outro") else None,
+                music=_resolve(base, values["music"]) if values.get("music") else None,
+            )
 
         locations[str(location_id)] = Location(
             id=str(location_id),
@@ -577,6 +632,8 @@ def load_config(path: str | Path) -> Config:
                 channels=channels,
                 bitrate=str(audio_output.get("bitrate", "192k")),
             ),
+            music_attenuation_db=music_attenuation,
+            music_fade_out_seconds=music_fade_out,
         ),
         output=OutputSettings(
             cache_dir=_resolve(base, output.get("cache_dir", "var/cache")),

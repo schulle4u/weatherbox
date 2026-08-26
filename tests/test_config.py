@@ -46,6 +46,91 @@ def test_non_stereo_configuration_is_rejected(tmp_path):
         load_config(path)
 
 
+def test_jingle_assets_and_music_settings_are_loaded_and_resolved(tmp_path):
+    path = write_test_config(tmp_path / "config.yaml")
+    text = path.read_text(encoding="utf-8").replace(
+        "audio:\n",
+        "audio:\n"
+        "  jingles:\n"
+        "    half_hour:\n"
+        "      intro: assets/intro.wav\n"
+        "      outro: assets/outro.wav\n"
+        "      music: assets/music.wav\n"
+        "    music_attenuation: -12.5\n"
+        "    music_fade_out: 3\n",
+        1,
+    )
+    path.write_text(text, encoding="utf-8")
+
+    config = load_config(path)
+    jingles = config.locations["wittstock"].jingles[AnnouncementKind.HALF_HOUR]
+
+    assert jingles.intro == tmp_path / "assets/intro.wav"
+    assert jingles.outro == tmp_path / "assets/outro.wav"
+    assert jingles.music == tmp_path / "assets/music.wav"
+    assert config.audio.music_attenuation_db == -12.5
+    assert config.audio.music_fade_out_seconds == 3
+
+
+def test_location_can_partially_override_and_disable_jingle_assets(tmp_path):
+    locations = """
+  forest:
+    name: Waldstation
+    latitude: 51.0
+    longitude: 10.0
+    timezone: Europe/Berlin
+    audio:
+      jingles:
+        half_hour:
+          intro: assets/local-intro.wav
+          music:
+"""
+    path = write_test_config(tmp_path / "config.yaml", locations)
+    text = path.read_text(encoding="utf-8").replace(
+        "audio:\n",
+        "audio:\n"
+        "  jingles:\n"
+        "    half_hour:\n"
+        "      intro: assets/default-intro.wav\n"
+        "      outro: assets/default-outro.wav\n"
+        "      music: assets/default-music.wav\n",
+        1,
+    )
+    path.write_text(text, encoding="utf-8")
+
+    jingles = load_config(path).locations["forest"].jingles[AnnouncementKind.HALF_HOUR]
+
+    assert jingles.intro == tmp_path / "assets/local-intro.wav"
+    assert jingles.outro == tmp_path / "assets/default-outro.wav"
+    assert jingles.music is None
+
+
+def test_old_scalar_jingle_syntax_is_rejected(tmp_path):
+    path = write_test_config(tmp_path / "config.yaml")
+    text = path.read_text(encoding="utf-8").replace(
+        "audio:\n", "audio:\n  jingles:\n    half_hour: assets/intro.wav\n", 1
+    )
+    path.write_text(text, encoding="utf-8")
+
+    with pytest.raises(ConfigurationError, match="half_hour.*YAML object"):
+        load_config(path)
+
+
+@pytest.mark.parametrize(
+    ("setting", "value"),
+    (("music_attenuation", 1), ("music_fade_out", -1)),
+)
+def test_invalid_music_settings_are_rejected(tmp_path, setting, value):
+    path = write_test_config(tmp_path / "config.yaml")
+    text = path.read_text(encoding="utf-8").replace(
+        "audio:\n", f"audio:\n  jingles:\n    {setting}: {value}\n", 1
+    )
+    path.write_text(text, encoding="utf-8")
+
+    with pytest.raises(ConfigurationError, match=setting):
+        load_config(path)
+
+
 def test_location_override_does_not_require_code_change(tmp_path):
     locations = """
   forest:

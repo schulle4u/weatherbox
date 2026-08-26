@@ -15,7 +15,7 @@ Während der Wiedergabe besteht keine Abhängigkeit zum TTS- oder Wetterdienst.
 - amtliche, stationsbezogene DWD-Warnmeldungen in Ansage-Templates
 - atomarer JSON-Wettercache mit konfigurierbarem Höchstalter
 - gTTS-Cloudausgabe sowie Piper und espeak-ng, frei als Primär- und Fallback-Provider kombinierbar
-- optionale Jingles, Stereo-Konvertierung, Loudness-Normalisierung und MP3-Encoding
+- optionale Intros, Outros und Musikbetten, Stereo-Konvertierung, Loudness-Normalisierung und MP3-Encoding
 - technische MP3-Prüfung mit FFprobe vor jeder Veröffentlichung
 - versionierte Assets und stabile öffentliche Dateinamen
 - Scheduler mit Vorbereitungshorizont, Retry-Intervall und persistentem Status
@@ -35,11 +35,38 @@ cp config.example.yaml config.yaml
 ```
 
 In `config.yaml` müssen insbesondere der TTS-Provider, gegebenenfalls das
-Piper-Modell, Jingle-Pfade und die
-Ausgabeverzeichnisse angepasst werden. Nicht gewünschte Jingles können durch
-Entfernen der jeweiligen YAML-Werte deaktiviert werden.
+Piper-Modell, Audio-Asset-Pfade und die
+Ausgabeverzeichnisse angepasst werden. Nicht gewünschte Audioelemente werden
+einfach weggelassen oder mit `null` deaktiviert.
 Standort-IDs sind URL- und dateisystemsichere Slugs aus Buchstaben, Zahlen,
 Bindestrichen und Unterstrichen (zum Beispiel `wittstock_nord`).
+
+## Intros, Outros und Musikbetten
+
+Für Halb- und Vollstundenansagen können unabhängig voneinander ein Intro, ein
+Outro und ein Musikbett konfiguriert werden:
+
+```yaml
+audio:
+  jingles:
+    half_hour:
+      intro: assets/intro.wav
+      outro: assets/outro.wav
+      music: assets/music.wav
+    full_hour:
+      intro: assets/full-hour-intro.wav
+    music_attenuation: -10
+    music_fade_out: 2.5
+```
+
+Relative Dateipfade werden relativ zur Konfigurationsdatei aufgelöst. Das
+Musikbett wird bei Bedarf wiederholt, um `music_attenuation` Dezibel abgesenkt
+und während der Ansage zugemischt. `music_fade_out` gibt an, wie viele Sekunden
+es nach dem Sprachende weiterläuft und ausfadet; anschließend beginnt das Outro.
+`music_attenuation` muss kleiner oder gleich null und `music_fade_out` größer
+oder gleich null sein. Standorte können einzelne Dateien unter
+`locations.<id>.audio.jingles.<half_hour|full_hour>` überschreiben oder durch
+einen leeren Wert gezielt deaktivieren.
 
 ## Template-Variablen
 

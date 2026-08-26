@@ -36,7 +36,7 @@ class FakeAudio:
     def __init__(self, fails=False):
         self.fails = fails
 
-    def process(self, speech_path, output_path, jingle_path=None):
+    def process(self, speech_path, output_path, jingles=None):
         if self.fails:
             raise RuntimeError("ffmpeg failed")
         output_path.write_bytes(b"valid fake mp3")

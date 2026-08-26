@@ -6,7 +6,13 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from weatherbox.models import AnnouncementKind, AnnouncementSpec, Location, WeatherData
+from weatherbox.models import (
+    AnnouncementKind,
+    AnnouncementSpec,
+    JingleAssets,
+    Location,
+    WeatherData,
+)
 from weatherbox.localization import builtin_language
 
 
@@ -35,7 +41,10 @@ def location() -> Location:
                 True, "Es ist {time} in {location}. {weather_description}, {temperature} Grad."
             ),
         },
-        jingles={AnnouncementKind.HALF_HOUR: None, AnnouncementKind.FULL_HOUR: None},
+        jingles={
+            AnnouncementKind.HALF_HOUR: JingleAssets(),
+            AnnouncementKind.FULL_HOUR: JingleAssets(),
+        },
     )
 
 

@@ -194,6 +194,15 @@ class AnnouncementSpec:
 
 
 @dataclass(frozen=True, slots=True)
+class JingleAssets:
+    """Optional audio elements surrounding and accompanying an announcement."""
+
+    intro: Path | None = None
+    outro: Path | None = None
+    music: Path | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class Location:
     """A configured weather location and its announcement preferences."""
 
@@ -204,7 +213,7 @@ class Location:
     timezone: str
     enabled: bool
     announcements: dict[AnnouncementKind, AnnouncementSpec]
-    jingles: dict[AnnouncementKind, Path | None] = field(default_factory=dict)
+    jingles: dict[AnnouncementKind, JingleAssets] = field(default_factory=dict)
     language: str = "de"
     dwd_station_id: str | None = None
 

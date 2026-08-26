@@ -8,6 +8,7 @@ from pathlib import Path
 
 from weatherbox.config import AudioSettings
 from weatherbox.errors import AudioProcessingError
+from weatherbox.models import JingleAssets
 
 
 class AudioPipeline:
@@ -17,27 +18,84 @@ class AudioPipeline:
         """Initialize the pipeline with audio processing settings."""
         self.settings = settings
 
-    def process(self, speech_path: Path, output_path: Path, jingle_path: Path | None = None) -> None:
-        """Create and validate an MP3 from speech and an optional leading jingle."""
-        if jingle_path is not None and not jingle_path.is_file():
-            raise AudioProcessingError(f"Jingle missing: {jingle_path}")
+    def process(
+        self,
+        speech_path: Path,
+        output_path: Path,
+        jingles: JingleAssets | None = None,
+    ) -> None:
+        """Create an MP3 from speech, optional intro/outro, and an optional music bed."""
+        jingles = jingles or JingleAssets()
+        for label, path in (
+            ("Intro", jingles.intro),
+            ("Outro", jingles.outro),
+            ("Music bed", jingles.music),
+        ):
+            if path is not None and not path.is_file():
+                raise AudioProcessingError(f"{label} missing: {path}")
+
         output_path.parent.mkdir(parents=True, exist_ok=True)
         command = [self.settings.ffmpeg, "-hide_banner", "-loglevel", "error", "-y"]
-        if jingle_path:
-            command += ["-i", str(jingle_path), "-i", str(speech_path)]
-            filters = (
-                f"[0:a]aformat=sample_rates={self.settings.output.sample_rate}:channel_layouts=stereo[j];"
-                f"[1:a]aformat=sample_rates={self.settings.output.sample_rate}:channel_layouts=stereo[s];"
-                "[j][s]concat=n=2:v=0:a=1"
+        command += ["-i", str(speech_path)]
+
+        input_indexes: dict[str, int] = {}
+        for name, path in (
+            ("intro", jingles.intro),
+            ("music", jingles.music),
+            ("outro", jingles.outro),
+        ):
+            if path is None:
+                continue
+            if name == "music":
+                command += ["-stream_loop", "-1"]
+            input_indexes[name] = len(input_indexes) + 1
+            command += ["-i", str(path)]
+
+        sample_rate = self.settings.output.sample_rate
+        audio_format = f"aformat=sample_rates={sample_rate}:channel_layouts=stereo"
+        filters: list[str] = [f"[0:a]{audio_format}[speech]"]
+        body_label = "speech"
+
+        if jingles.music is not None:
+            speech_duration = self._duration(speech_path)
+            fade_duration = self.settings.music_fade_out_seconds
+            music_duration = speech_duration + fade_duration
+            fade = ""
+            if fade_duration > 0:
+                fade = (
+                    f",afade=t=out:st={self._format_number(speech_duration)}"
+                    f":d={self._format_number(fade_duration)}"
+                )
+            filters.extend(
+                (
+                    f"[speech]apad=pad_dur={self._format_number(fade_duration)}[speech_padded]",
+                    f"[{input_indexes['music']}:a]{audio_format},"
+                    f"volume={self._format_number(self.settings.music_attenuation_db)}dB,"
+                    f"atrim=duration={self._format_number(music_duration)}{fade}[music]",
+                    "[speech_padded][music]amix=inputs=2:duration=first:dropout_transition=0[body]",
+                )
             )
-            filters += self._loudness_suffix()
-            filters += "[out]"
-            command += ["-filter_complex", filters, "-map", "[out]"]
+            body_label = "body"
+
+        sequence: list[str] = []
+        if jingles.intro is not None:
+            filters.append(f"[{input_indexes['intro']}:a]{audio_format}[intro]")
+            sequence.append("intro")
+        sequence.append(body_label)
+        if jingles.outro is not None:
+            filters.append(f"[{input_indexes['outro']}:a]{audio_format}[outro]")
+            sequence.append("outro")
+
+        if len(sequence) > 1:
+            inputs = "".join(f"[{label}]" for label in sequence)
+            filters.append(f"{inputs}concat=n={len(sequence)}:v=0:a=1[assembled]")
+            final_label = "assembled"
         else:
-            command += ["-i", str(speech_path)]
-            filters = f"aformat=sample_rates={self.settings.output.sample_rate}:channel_layouts=stereo"
-            filters += self._loudness_suffix()
-            command += ["-af", filters]
+            final_label = sequence[0]
+
+        final_filter = f"[{final_label}]anull{self._loudness_suffix()}[out]"
+        filters.append(final_filter)
+        command += ["-filter_complex", ";".join(filters), "-map", "[out]"]
         command += [
             "-ar", str(self.settings.output.sample_rate),
             "-ac", str(self.settings.output.channels),
@@ -47,6 +105,29 @@ class AudioPipeline:
         ]
         self._run(command, "FFmpeg processing")
         self.validate(output_path)
+
+    def _duration(self, path: Path) -> float:
+        """Return an input file's positive duration in seconds using FFprobe."""
+        command = [
+            self.settings.ffprobe,
+            "-v", "error",
+            "-show_entries", "format=duration",
+            "-of", "json",
+            str(path),
+        ]
+        result = self._run(command, "FFprobe duration inspection", return_output=True)
+        try:
+            duration = float(json.loads(result)["format"]["duration"])
+            if duration <= 0:
+                raise ValueError("invalid duration")
+            return duration
+        except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+            raise AudioProcessingError(f"Invalid speech duration: {exc}") from exc
+
+    @staticmethod
+    def _format_number(value: float) -> str:
+        """Format numeric FFmpeg arguments without locale-dependent separators."""
+        return format(value, ".12g")
 
     def _loudness_suffix(self) -> str:
         """Return the configured FFmpeg loudness-normalization filter suffix."""
