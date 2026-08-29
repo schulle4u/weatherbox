@@ -6,7 +6,12 @@ from dataclasses import replace
 import pytest
 
 from weatherbox.audio import AudioPipeline
-from weatherbox.config import AudioOutputSettings, AudioSettings, LoudnessSettings
+from weatherbox.config import (
+    AudioFormatSettings,
+    AudioOutputSettings,
+    AudioSettings,
+    LoudnessSettings,
+)
 from weatherbox.errors import AudioProcessingError
 from weatherbox.models import JingleAssets
 
@@ -56,6 +61,54 @@ def test_ffmpeg_failure_is_reported(tmp_path, settings, monkeypatch):
     )
     with pytest.raises(AudioProcessingError, match="codec error"):
         AudioPipeline(settings).process(speech, tmp_path / "out.mp3")
+
+
+@pytest.mark.parametrize(
+    ("audio_format", "probe_codec", "has_bitrate"),
+    (
+        (AudioFormatSettings("mp3", "mp3", "libmp3lame", "mp3", "192k"), "mp3", True),
+        (AudioFormatSettings("wav", "wav", "pcm_s16le", "wav", None), "pcm_s16le", False),
+        (AudioFormatSettings("flac", "flac", "flac", "flac", None), "flac", False),
+        (AudioFormatSettings("ogg", "ogg", "libvorbis", "ogg", "160k"), "vorbis", True),
+        (AudioFormatSettings("opus", "opus", "libopus", "opus", "96k"), "opus", True),
+        (AudioFormatSettings("m4a", "m4a", "aac", "ipod", "192k"), "aac", True),
+    ),
+)
+def test_each_audio_format_uses_expected_encoder_and_is_validated(
+    tmp_path, settings, monkeypatch, audio_format, probe_codec, has_bitrate
+):
+    speech = tmp_path / "speech.wav"
+    speech.write_bytes(b"RIFF")
+    output = tmp_path / f"out.{audio_format.extension}"
+    commands = []
+
+    def fake_run(command, **kwargs):
+        commands.append(command)
+        if command[0] == "ffmpeg":
+            output.write_bytes(b"audio")
+            return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+        payload = {
+            "streams": [
+                {"codec_name": probe_codec, "channels": 2, "sample_rate": "48000"}
+            ],
+            "format": {"duration": "2.5"},
+        }
+        return subprocess.CompletedProcess(
+            command, 0, stdout=json.dumps(payload), stderr=""
+        )
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    configured = replace(
+        settings,
+        output=replace(settings.output, formats=(audio_format,)),
+    )
+
+    AudioPipeline(configured).process(speech, output)
+
+    ffmpeg_command = commands[0]
+    assert ffmpeg_command[ffmpeg_command.index("-c:a") + 1] == audio_format.codec
+    assert ffmpeg_command[ffmpeg_command.index("-f") + 1] == audio_format.container
+    assert ("-b:a" in ffmpeg_command) is has_bitrate
 
 
 def test_music_bed_is_looped_mixed_faded_and_surrounded_by_jingles(
@@ -125,6 +178,51 @@ def test_missing_optional_asset_is_reported_before_ffmpeg(
             speech, tmp_path / "out.mp3", JingleAssets(outro=missing)
         )
     assert not called
+
+
+@pytest.mark.skipif(
+    shutil.which("ffmpeg") is None or shutil.which("ffprobe") is None,
+    reason="FFmpeg and FFprobe are required for the integration test",
+)
+@pytest.mark.parametrize(
+    "audio_format",
+    (
+        AudioFormatSettings("mp3", "mp3", "libmp3lame", "mp3", "192k"),
+        AudioFormatSettings("wav", "wav", "pcm_s16le", "wav", None),
+        AudioFormatSettings("flac", "flac", "flac", "flac", None),
+        AudioFormatSettings("ogg", "ogg", "libvorbis", "ogg", "160k"),
+        AudioFormatSettings("opus", "opus", "libopus", "opus", "96k"),
+        AudioFormatSettings("m4a", "m4a", "aac", "ipod", "192k"),
+    ),
+    ids=lambda audio_format: audio_format.name,
+)
+def test_real_ffmpeg_encodes_each_supported_format(tmp_path, settings, audio_format):
+    speech = tmp_path / "speech.wav"
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=440:duration=0.2",
+            str(speech),
+        ],
+        check=True,
+    )
+    configured = replace(
+        settings,
+        loudness=replace(settings.loudness, enabled=False),
+        output=replace(settings.output, formats=(audio_format,)),
+    )
+    output = tmp_path / f"announcement.{audio_format.extension}"
+
+    AudioPipeline(configured).process(speech, output)
+
+    assert output.is_file()
 
 
 @pytest.mark.skipif(

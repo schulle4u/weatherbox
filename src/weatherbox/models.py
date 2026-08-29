@@ -22,8 +22,13 @@ class AnnouncementKind(StrEnum):
 
     @property
     def filename(self) -> str:
-        """Return the stable public filename for this announcement kind."""
-        return "half-hour.mp3" if self is AnnouncementKind.HALF_HOUR else "full-hour.mp3"
+        """Return the legacy MP3 public filename for this announcement kind."""
+        return self.filename_for("mp3")
+
+    def filename_for(self, extension: str) -> str:
+        """Return the stable public filename with the requested extension."""
+        stem = "half-hour" if self is AnnouncementKind.HALF_HOUR else "full-hour"
+        return f"{stem}.{extension.lstrip('.')}"
 
     @property
     def short_name(self) -> str:

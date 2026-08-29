@@ -1,7 +1,7 @@
 # Weatherbox
 
 Weatherbox erzeugt standortbezogene Wetteransagen als vollständig vorproduzierte
-Stereo-MP3-Dateien. Die Dateien werden vor ihrem Wiedergabezeitpunkt atomar
+Stereo-Audiodateien. Die Dateien werden vor ihrem Wiedergabezeitpunkt atomar
 veröffentlicht und können von Raspberry-Pi-Clients vorab lokal gecacht werden.
 Während der Wiedergabe besteht keine Abhängigkeit zum TTS- oder Wetterdienst.
 
@@ -16,8 +16,9 @@ Während der Wiedergabe besteht keine Abhängigkeit zum TTS- oder Wetterdienst.
 - amtliche, stationsbezogene DWD-Warnmeldungen in Ansage-Templates
 - atomarer JSON-Wettercache mit konfigurierbarem Höchstalter
 - gTTS-Cloudausgabe sowie Piper und espeak-ng, frei als Primär- und Fallback-Provider kombinierbar
-- optionale Intros, Outros und Musikbetten, Stereo-Konvertierung, Loudness-Normalisierung und MP3-Encoding
-- technische MP3-Prüfung mit FFprobe vor jeder Veröffentlichung
+- optionale Intros, Outros und Musikbetten, Stereo-Konvertierung, Loudness-Normalisierung und Multi-Format-Encoding
+- MP3, WAV, FLAC, Ogg Vorbis, Opus und AAC in M4A-Containern
+- technische Codec-Prüfung mit FFprobe vor jeder Veröffentlichung
 - versionierte Assets und stabile öffentliche Dateinamen
 - Scheduler mit Vorbereitungshorizont, Retry-Intervall und persistentem Status
 - unabhängige Fehlerbehandlung pro Standort
@@ -68,6 +69,49 @@ es nach dem Sprachende weiterläuft und ausfadet; anschließend beginnt das Outr
 oder gleich null sein. Standorte können einzelne Dateien unter
 `locations.<id>.audio.jingles.<half_hour|full_hour>` überschreiben oder durch
 einen leeren Wert gezielt deaktivieren.
+
+## Audio-Ausgabeformate
+
+Ohne Formatangabe erzeugt Weatherbox wie bisher ausschließlich MP3. Mehrere
+Formate lassen sich in einer kompakten Schreibweise aktivieren:
+
+```yaml
+audio:
+  output:
+    format: mp3, flac, opus
+    sample_rate: 48000
+    channels: 2
+    bitrate: 192k
+```
+
+Alternativ erlaubt `formats` eine eigene Bitrate je verlustbehaftetem Format:
+
+```yaml
+audio:
+  output:
+    sample_rate: 48000
+    channels: 2
+    formats:
+      mp3:
+        bitrate: 192k
+      wav: {}
+      flac: {}
+      ogg:
+        bitrate: 160k
+      opus:
+        bitrate: 96k
+      m4a:
+        bitrate: 192k
+```
+
+Unterstützt werden `mp3`, `wav` (PCM 16 Bit), `flac`, `ogg` (Vorbis), `opus`
+und `m4a` (AAC). `vorbis` und `aac` werden als Alias für `ogg` beziehungsweise
+`m4a` akzeptiert. `format` akzeptiert neben der kommagetrennten Schreibweise
+auch eine YAML-Liste. `format` und `formats` dürfen nicht gleichzeitig gesetzt
+werden. WAV und FLAC sind verlustfrei und besitzen daher keine
+Bitratenkonfiguration. Opus unterstützt als Abtastrate 8000, 12000, 16000,
+24000 oder 48000 Hz. Erst wenn alle konfigurierten Formate erfolgreich erzeugt
+und mit FFprobe validiert wurden, beginnt die Veröffentlichung.
 
 ## Template-Variablen
 
@@ -331,7 +375,8 @@ wb-announcer --config config.yaml status
 `run` ist für den regelmäßigen systemd-Aufruf vorgesehen. Die Anwendung prüft
 selbst, welche Ansagen innerhalb des konfigurierten Vorbereitungshorizonts liegen.
 Manuelle Generierungsbefehle behandeln alle Standorte unabhängig und liefern pro
-Asset einen Erfolg oder Fehler zurück.
+Ansage einen Erfolg oder Fehler zurück; bei Erfolg werden alle konfigurierten
+Ausgabeformate veröffentlicht.
 
 ## Ausgabe
 
@@ -339,7 +384,11 @@ Bei einer Ansage für Wittstock entstehen beispielsweise:
 
 ```text
 var/generated/wittstock/2026-08-18/14-00-full.mp3
+var/generated/wittstock/2026-08-18/14-00-full.flac
+var/generated/wittstock/2026-08-18/14-00-full.opus
 var/public/wittstock/full-hour.mp3
+var/public/wittstock/full-hour.flac
+var/public/wittstock/full-hour.opus
 ```
 
 Nur die stabilen Dateien unter `public_dir` werden durch Caddy oder nginx
@@ -376,10 +425,10 @@ One-shot-Lauf; Retries und Fälligkeit entscheidet Weatherbox selbst.
 
 ## Architekturregel
 
-Weatherbox erzeugt keine Live-Audioausgabe. Eine neue Datei wird erst nach
-erfolgreicher TTS-Erzeugung, Audioverarbeitung und FFprobe-Validierung atomar an
-die stabile öffentliche Stelle verschoben. Schlägt ein Schritt fehl, bleibt das
-bisherige öffentliche Asset unverändert.
+Weatherbox erzeugt keine Live-Audioausgabe. Alle konfigurierten Formate werden
+zuerst erzeugt und mit FFprobe validiert. Erst danach wird jede Datei atomar an
+ihre stabile öffentliche Stelle verschoben. Schlägt Synthese, Verarbeitung oder
+Validierung fehl, bleiben sämtliche bisherigen öffentlichen Assets unverändert.
 
 Die Wetter-Implementierung liegt im Paket `src/weatherbox/weather/`:
 

@@ -35,10 +35,12 @@ class FakeTTS:
 class FakeAudio:
     def __init__(self, fails=False):
         self.fails = fails
+        self.outputs = []
 
     def process(self, speech_path, output_path, jingles=None):
         if self.fails:
             raise RuntimeError("ffmpeg failed")
+        self.outputs.append(output_path)
         output_path.write_bytes(b"valid fake mp3")
 
 
@@ -57,6 +59,78 @@ def test_end_to_end_generation_publishes_both_asset_paths(tmp_path, now, weather
     asset = service.generate(item)
     assert asset.public_path.read_bytes() == b"valid fake mp3"
     assert asset.versioned_path.is_file()
+
+
+def test_generation_publishes_every_configured_audio_format(tmp_path, now, weather):
+    path = write_test_config(tmp_path / "config.yaml")
+    path.write_text(
+        path.read_text(encoding="utf-8").replace(
+            "  output:\n", "  output:\n    format: mp3, flac, opus\n", 1
+        ),
+        encoding="utf-8",
+    )
+    config = load_config(path)
+    audio = FakeAudio()
+    service = WeatherboxService(
+        config,
+        weather_provider=FakeWeatherProvider(now, weather),
+        tts_provider=FakeTTS(),
+        audio_pipeline=audio,
+        now_fn=lambda: now,
+    )
+    item = service.manual_items(
+        (config.locations["wittstock"],), (AnnouncementKind.FULL_HOUR,)
+    )[0]
+
+    service.generate(item)
+
+    public = config.output.public_dir / "wittstock"
+    generated = config.output.generated_dir / "wittstock" / "2026-08-18"
+    assert {path.name for path in public.iterdir()} == {
+        "full-hour.mp3", "full-hour.flac", "full-hour.opus"
+    }
+    assert {path.name for path in generated.iterdir()} == {
+        "14-00-full.mp3", "14-00-full.flac", "14-00-full.opus"
+    }
+    assert tuple(path.suffix for path in audio.outputs) == (".mp3", ".flac", ".opus")
+
+
+def test_format_failure_does_not_replace_any_existing_asset(tmp_path, now, weather):
+    path = write_test_config(tmp_path / "config.yaml")
+    path.write_text(
+        path.read_text(encoding="utf-8").replace(
+            "  output:\n", "  output:\n    format: mp3, opus\n", 1
+        ),
+        encoding="utf-8",
+    )
+    config = load_config(path)
+    public = config.output.public_dir / "wittstock"
+    public.mkdir(parents=True)
+    for name in ("full-hour.mp3", "full-hour.opus"):
+        (public / name).write_bytes(b"old audio")
+
+    class FailingOpusAudio(FakeAudio):
+        def process(self, speech_path, output_path, jingles=None):
+            if output_path.suffix == ".opus":
+                raise RuntimeError("opus encoding failed")
+            super().process(speech_path, output_path, jingles)
+
+    service = WeatherboxService(
+        config,
+        weather_provider=FakeWeatherProvider(now, weather),
+        tts_provider=FakeTTS(),
+        audio_pipeline=FailingOpusAudio(),
+        now_fn=lambda: now,
+    )
+    item = service.manual_items(
+        (config.locations["wittstock"],), (AnnouncementKind.FULL_HOUR,)
+    )[0]
+
+    result = service.generate_many((item,))
+
+    assert result[item.key].startswith("ERROR:")
+    assert (public / "full-hour.mp3").read_bytes() == b"old audio"
+    assert (public / "full-hour.opus").read_bytes() == b"old audio"
 
 
 def test_run_due_cleans_generated_assets_when_retention_is_configured(

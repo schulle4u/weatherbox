@@ -1,4 +1,4 @@
-"""Convert synthesized speech to validated, normalized MP3 assets."""
+"""Convert synthesized speech to validated, normalized audio assets."""
 
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ class AudioPipeline:
         output_path: Path,
         jingles: JingleAssets | None = None,
     ) -> None:
-        """Create an MP3 from speech, optional intro/outro, and an optional music bed."""
+        """Create a configured audio format with optional jingles and music bed."""
         jingles = jingles or JingleAssets()
         for label, path in (
             ("Intro", jingles.intro),
@@ -96,13 +96,18 @@ class AudioPipeline:
         final_filter = f"[{final_label}]anull{self._loudness_suffix()}[out]"
         filters.append(final_filter)
         command += ["-filter_complex", ";".join(filters), "-map", "[out]"]
+        try:
+            output_format = self.settings.output.format_for_extension(output_path.suffix)
+        except ValueError as exc:
+            raise AudioProcessingError(str(exc)) from exc
         command += [
             "-ar", str(self.settings.output.sample_rate),
             "-ac", str(self.settings.output.channels),
-            "-b:a", self.settings.output.bitrate,
-            "-f", "mp3",
-            str(output_path),
+            "-c:a", output_format.codec,
         ]
+        if output_format.bitrate is not None:
+            command += ["-b:a", output_format.bitrate]
+        command += ["-f", output_format.container, str(output_path)]
         self._run(command, "FFmpeg processing")
         self.validate(output_path)
 
@@ -137,9 +142,15 @@ class AudioPipeline:
         return f",loudnorm=I={value.target_lufs}:LRA={value.loudness_range}:TP={value.true_peak_db}"
 
     def validate(self, path: Path) -> None:
-        """Verify that a file is a non-empty MP3 with the configured format."""
+        """Verify that a file is non-empty and matches its configured audio format."""
+        try:
+            output_format = self.settings.output.format_for_extension(path.suffix)
+        except ValueError as exc:
+            raise AudioProcessingError(str(exc)) from exc
         if not path.is_file() or path.stat().st_size == 0:
-            raise AudioProcessingError("MP3 file missing or empty")
+            raise AudioProcessingError(
+                f"{output_format.name.upper()} file missing or empty"
+            )
         command = [
             self.settings.ffprobe,
             "-v", "error",
@@ -153,8 +164,15 @@ class AudioPipeline:
             payload = json.loads(result)
             stream = payload["streams"][0]
             duration = float(payload["format"]["duration"])
-            if stream["codec_name"] != "mp3":
-                raise ValueError("Codec is not MP3")
+            expected_codec = {
+                "libmp3lame": "mp3",
+                "libvorbis": "vorbis",
+                "libopus": "opus",
+            }.get(output_format.codec, output_format.codec)
+            if stream["codec_name"] != expected_codec:
+                raise ValueError(
+                    f"expected codec {expected_codec}, got {stream['codec_name']}"
+                )
             if int(stream["channels"]) != self.settings.output.channels:
                 raise ValueError("unexpected channel count")
             if int(stream["sample_rate"]) != self.settings.output.sample_rate:
@@ -162,7 +180,9 @@ class AudioPipeline:
             if duration <= 0:
                 raise ValueError("invalid duration")
         except (KeyError, IndexError, TypeError, ValueError, json.JSONDecodeError) as exc:
-            raise AudioProcessingError(f"Invalid MP3 output: {exc}") from exc
+            raise AudioProcessingError(
+                f"Invalid {output_format.name.upper()} output: {exc}"
+            ) from exc
 
     @staticmethod
     def _run(command: list[str], label: str, *, return_output: bool = False) -> str:

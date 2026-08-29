@@ -27,6 +27,16 @@ WEATHER_PROVIDER_ENDPOINTS = {
     "dwd": "https://app-prod-ws.warnwetter.de/v30/stationOverviewExtended",
 }
 
+AUDIO_FORMAT_SPECS = {
+    "mp3": ("mp3", "libmp3lame", "mp3", "192k"),
+    "wav": ("wav", "pcm_s16le", "wav", None),
+    "flac": ("flac", "flac", "flac", None),
+    "ogg": ("ogg", "libvorbis", "ogg", "192k"),
+    "opus": ("opus", "libopus", "opus", "128k"),
+    "m4a": ("m4a", "aac", "ipod", "192k"),
+}
+AUDIO_FORMAT_ALIASES = {"vorbis": "ogg", "aac": "m4a"}
+
 
 @dataclass(frozen=True, slots=True)
 class ApplicationSettings:
@@ -148,12 +158,34 @@ class LoudnessSettings:
 
 
 @dataclass(frozen=True, slots=True)
+class AudioFormatSettings:
+    """FFmpeg encoding settings for one published audio format."""
+
+    name: str
+    extension: str
+    codec: str
+    container: str
+    bitrate: str | None
+
+
+@dataclass(frozen=True, slots=True)
 class AudioOutputSettings:
-    """Encoding settings for generated MP3 files."""
+    """Common and format-specific settings for generated audio files."""
 
     sample_rate: int
     channels: int
-    bitrate: str
+    bitrate: str = "192k"
+    formats: tuple[AudioFormatSettings, ...] = (
+        AudioFormatSettings("mp3", "mp3", "libmp3lame", "mp3", "192k"),
+    )
+
+    def format_for_extension(self, extension: str) -> AudioFormatSettings:
+        """Return the configured format matching a filename extension."""
+        normalized = extension.lower().lstrip(".")
+        for audio_format in self.formats:
+            if audio_format.extension == normalized:
+                return audio_format
+        raise ValueError(f"No configured audio format uses '.{normalized}'")
 
 
 @dataclass(frozen=True, slots=True)
@@ -245,6 +277,79 @@ def _resolve(base: Path, value: str | Path) -> Path:
     """Resolve a configured path relative to the configuration directory."""
     path = Path(value).expanduser()
     return path if path.is_absolute() else (base / path).resolve()
+
+
+def _audio_formats(raw: dict[str, Any]) -> tuple[AudioFormatSettings, ...]:
+    """Parse short or per-format audio output configuration."""
+    if "format" in raw and "formats" in raw:
+        raise ConfigurationError(
+            "Configure either 'audio.output.format' or 'audio.output.formats', not both"
+        )
+
+    individual_options: dict[str, Any] = {}
+    if "formats" in raw:
+        formats_raw = raw["formats"]
+        if not isinstance(formats_raw, dict) or not formats_raw:
+            raise ConfigurationError(
+                "'audio.output.formats' must be a non-empty YAML object"
+            )
+        raw_names = list(formats_raw)
+        individual_options = formats_raw
+    else:
+        short = raw.get("format", "mp3")
+        if isinstance(short, str):
+            raw_names = [name.strip() for name in short.split(",") if name.strip()]
+        elif isinstance(short, list):
+            raw_names = list(short)
+        else:
+            raise ConfigurationError(
+                "'audio.output.format' must be a format name, comma-separated names, or a YAML list"
+            )
+        if not raw_names:
+            raise ConfigurationError("At least one audio output format is required")
+
+    global_bitrate = str(raw["bitrate"]) if raw.get("bitrate") is not None else None
+    formats: list[AudioFormatSettings] = []
+    seen: set[str] = set()
+    for raw_name in raw_names:
+        name = str(raw_name).strip().lower()
+        name = AUDIO_FORMAT_ALIASES.get(name, name)
+        if name not in AUDIO_FORMAT_SPECS:
+            supported = ", ".join(AUDIO_FORMAT_SPECS)
+            raise ConfigurationError(
+                f"Unknown audio output format '{raw_name}'; expected one of: {supported}"
+            )
+        if name in seen:
+            raise ConfigurationError(
+                f"Audio output format '{name}' is configured more than once"
+            )
+        seen.add(name)
+
+        options = individual_options.get(raw_name, {})
+        if options is None:
+            options = {}
+        if not isinstance(options, dict):
+            raise ConfigurationError(
+                f"'audio.output.formats.{raw_name}' must be a YAML object"
+            )
+        _reject_unknown_keys(
+            options, {"bitrate"}, f"audio.output.formats.{raw_name}"
+        )
+        extension, codec, container, default_bitrate = AUDIO_FORMAT_SPECS[name]
+        if default_bitrate is None and options.get("bitrate") is not None:
+            raise ConfigurationError(
+                f"'audio.output.formats.{raw_name}.bitrate' is not valid for lossless format '{name}'"
+            )
+        configured_bitrate = options.get("bitrate", global_bitrate)
+        bitrate = (
+            None
+            if default_bitrate is None
+            else str(configured_bitrate or default_bitrate)
+        )
+        formats.append(
+            AudioFormatSettings(name, extension, codec, container, bitrate)
+        )
+    return tuple(formats)
 
 
 def _reject_unknown_keys(
@@ -583,8 +688,26 @@ def load_config(path: str | Path) -> Config:
             gtts_tld=str(gtts_tld_value) if gtts_tld_value else None,
         )
 
-    if str(audio_output.get("format", "mp3")).lower() != "mp3":
-        raise ConfigurationError("'audio.output.format' must be 'mp3'")
+    _reject_unknown_keys(
+        audio_output,
+        {"format", "formats", "sample_rate", "channels", "bitrate"},
+        "audio.output",
+    )
+    audio_formats = _audio_formats(audio_output)
+    sample_rate = _positive(
+        audio_output.get("sample_rate", 48000), "audio.output.sample_rate"
+    )
+    if any(item.name == "opus" for item in audio_formats) and sample_rate not in {
+        8000,
+        12000,
+        16000,
+        24000,
+        48000,
+    }:
+        raise ConfigurationError(
+            "'audio.output.sample_rate' must be 8000, 12000, 16000, 24000, "
+            "or 48000 when Opus output is enabled"
+        )
     channels = _positive(audio_output.get("channels", 2), "audio.output.channels")
     if channels != 2:
         raise ConfigurationError("'audio.output.channels' must be 2 (stereo)")
@@ -639,9 +762,10 @@ def load_config(path: str | Path) -> Config:
                 loudness_range=float(loudness.get("loudness_range", 11)),
             ),
             output=AudioOutputSettings(
-                sample_rate=_positive(audio_output.get("sample_rate", 48000), "audio.output.sample_rate"),
+                sample_rate=sample_rate,
                 channels=channels,
                 bitrate=str(audio_output.get("bitrate", "192k")),
+                formats=audio_formats,
             ),
             music_attenuation_db=music_attenuation,
             music_fade_out_seconds=music_fade_out,

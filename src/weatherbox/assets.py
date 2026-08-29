@@ -20,20 +20,27 @@ class AssetManager:
         self.generated_dir = generated_dir
         self.public_dir = public_dir
 
-    def paths(self, location_id: str, kind: AnnouncementKind, playback_at) -> AudioAsset:
+    def paths(
+        self,
+        location_id: str,
+        kind: AnnouncementKind,
+        playback_at,
+        extension: str = "mp3",
+    ) -> AudioAsset:
         """Build the versioned and public paths for an announcement."""
+        extension = extension.lower().lstrip(".")
         date_dir = self.generated_dir / location_id / playback_at.date().isoformat()
-        filename = f"{playback_at:%H-%M}-{kind.short_name}.mp3"
+        filename = f"{playback_at:%H-%M}-{kind.short_name}.{extension}"
         return AudioAsset(
             location_id=location_id,
             kind=kind,
             playback_at=playback_at,
             versioned_path=date_dir / filename,
-            public_path=self.public_dir / location_id / kind.filename,
+            public_path=self.public_dir / location_id / kind.filename_for(extension),
         )
 
     def publish(self, source: Path, asset: AudioAsset) -> AudioAsset:
-        """Atomically copy a generated MP3 to its versioned and public paths."""
+        """Atomically copy generated audio to its versioned and public paths."""
         if not source.is_file() or source.stat().st_size == 0:
             raise AssetPublicationError("The asset to be published is missing or empty")
         asset.versioned_path.parent.mkdir(parents=True, exist_ok=True)
@@ -102,7 +109,9 @@ class AssetManager:
     @staticmethod
     def _copy_to_temporary(source: Path, target_dir: Path, *, mode: int | None = None) -> Path:
         """Copy a source file to a flushed temporary file in ``target_dir``."""
-        fd, name = tempfile.mkstemp(prefix=".weatherbox-", suffix=".mp3", dir=target_dir)
+        fd, name = tempfile.mkstemp(
+            prefix=".weatherbox-", suffix=source.suffix, dir=target_dir
+        )
         os.close(fd)
         temporary = Path(name)
         try:

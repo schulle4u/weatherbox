@@ -74,6 +74,79 @@ def test_non_stereo_configuration_is_rejected(tmp_path):
         load_config(path)
 
 
+def test_comma_separated_audio_formats_are_loaded_in_order(tmp_path):
+    path = write_test_config(tmp_path / "config.yaml")
+    path.write_text(
+        path.read_text(encoding="utf-8").replace(
+            "  output:\n", "  output:\n    format: mp3, flac, opus\n", 1
+        ),
+        encoding="utf-8",
+    )
+
+    formats = load_config(path).audio.output.formats
+
+    assert tuple(item.name for item in formats) == ("mp3", "flac", "opus")
+    assert tuple(item.extension for item in formats) == ("mp3", "flac", "opus")
+    assert formats[1].bitrate is None
+
+
+def test_audio_formats_can_be_configured_individually(tmp_path):
+    path = write_test_config(tmp_path / "config.yaml")
+    text = path.read_text(encoding="utf-8").replace(
+        "    sample_rate: 48000\n"
+        "    channels: 2\n"
+        "    bitrate: 192k",
+        "    sample_rate: 48000\n"
+        "    channels: 2\n"
+        "    formats:\n"
+        "      mp3:\n"
+        "        bitrate: 256k\n"
+        "      wav: {}\n"
+        "      flac: {}\n"
+        "      ogg:\n"
+        "        bitrate: 160k\n"
+        "      opus:\n"
+        "        bitrate: 96k\n"
+        "      aac:\n"
+        "        bitrate: 192k",
+    )
+    path.write_text(text, encoding="utf-8")
+
+    formats = load_config(path).audio.output.formats
+
+    assert tuple(item.name for item in formats) == (
+        "mp3", "wav", "flac", "ogg", "opus", "m4a"
+    )
+    assert tuple(item.bitrate for item in formats) == (
+        "256k", None, None, "160k", "96k", "192k"
+    )
+
+
+@pytest.mark.parametrize("value", ("wma", "mp3, mp3"))
+def test_invalid_or_duplicate_audio_formats_are_rejected(tmp_path, value):
+    path = write_test_config(tmp_path / "config.yaml")
+    path.write_text(
+        path.read_text(encoding="utf-8").replace(
+            "  output:\n", f"  output:\n    format: {value}\n", 1
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ConfigurationError, match="audio output format|configured more than once"):
+        load_config(path)
+
+
+def test_unsupported_opus_sample_rate_is_rejected(tmp_path):
+    path = write_test_config(tmp_path / "config.yaml")
+    text = path.read_text(encoding="utf-8")
+    text = text.replace("  output:\n", "  output:\n    format: opus\n", 1)
+    text = text.replace("sample_rate: 48000", "sample_rate: 44100")
+    path.write_text(text, encoding="utf-8")
+
+    with pytest.raises(ConfigurationError, match="when Opus output is enabled"):
+        load_config(path)
+
+
 def test_jingle_assets_and_music_settings_are_loaded_and_resolved(tmp_path):
     path = write_test_config(tmp_path / "config.yaml")
     text = path.read_text(encoding="utf-8").replace(

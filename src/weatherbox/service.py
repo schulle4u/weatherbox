@@ -114,7 +114,7 @@ class WeatherboxService:
         return forecast
 
     def generate(self, item: ScheduledAnnouncement, *, track_state: bool = True) -> AudioAsset:
-        """Generate, validate, and publish one scheduled announcement."""
+        """Generate, validate, and publish all configured formats for an announcement."""
         now = self.now_fn()
         if track_state:
             self.state.set(
@@ -144,7 +144,6 @@ class WeatherboxService:
                 # Providers may produce WAV (Piper/eSpeak) or MP3 (gTTS).
                 # FFmpeg detects the actual input format from the file contents.
                 speech_path = temporary / "speech.audio"
-                mp3_path = temporary / "announcement.mp3"
                 tts_provider = self._tts_for_language(item.location.language)
                 tts_provider.synthesize(text, speech_path)
                 LOG.info(
@@ -155,10 +154,38 @@ class WeatherboxService:
                         "language": item.location.language,
                     },
                 )
-                self.audio.process(speech_path, mp3_path, item.location.jingles.get(item.kind))
-                LOG.info("MP3 validated", extra={"location_id": item.location.id})
-                asset = self.assets.paths(item.location.id, item.kind, item.playback_at)
-                self.assets.publish(mp3_path, asset)
+                rendered_assets: list[tuple[Path, AudioAsset]] = []
+                for audio_format in self.config.audio.output.formats:
+                    audio_path = temporary / f"announcement.{audio_format.extension}"
+                    self.audio.process(
+                        speech_path,
+                        audio_path,
+                        item.location.jingles.get(item.kind),
+                    )
+                    rendered_assets.append(
+                        (
+                            audio_path,
+                            self.assets.paths(
+                                item.location.id,
+                                item.kind,
+                                item.playback_at,
+                                audio_format.extension,
+                            ),
+                        )
+                    )
+                    LOG.info(
+                        "Audio format validated",
+                        extra={
+                            "location_id": item.location.id,
+                            "format": audio_format.name,
+                        },
+                    )
+
+                # Validate every configured representation before replacing any
+                # already-published public asset.
+                for audio_path, rendered_asset in rendered_assets:
+                    self.assets.publish(audio_path, rendered_asset)
+                asset = rendered_assets[0][1]
             if track_state:
                 self.state.set(
                     item,
@@ -167,8 +194,14 @@ class WeatherboxService:
                     public_path=asset.public_path,
                 )
             LOG.info(
-                "Asset published",
-                extra={"location_id": item.location.id, "public_path": str(asset.public_path)},
+                "Assets published",
+                extra={
+                    "location_id": item.location.id,
+                    "public_paths": [
+                        str(rendered_asset.public_path)
+                        for _, rendered_asset in rendered_assets
+                    ],
+                },
             )
             return asset
         except Exception as exc:

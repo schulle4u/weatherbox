@@ -70,10 +70,20 @@ audio:
     true_peak_db: -1.5
     loudness_range: 11
   output:
-    format: mp3
     sample_rate: 48000
     channels: 2
-    bitrate: 192k
+    # Jeder Schlüssel erzeugt ein eigenes versioniertes und öffentliches Asset.
+    formats:
+      mp3:
+        bitrate: 192k
+      # wav: {}
+      # flac: {}
+      # ogg:
+      #   bitrate: 160k
+      # opus:
+      #   bitrate: 96k
+      # m4a:
+      #   bitrate: 192k
   jingles:
     # Relative Pfade werden relativ zu dieser Konfigurationsdatei aufgelöst.
     # Alle drei Dateien sind optional.

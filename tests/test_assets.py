@@ -24,6 +24,18 @@ def test_versioned_and_public_asset_are_published(tmp_path):
     assert asset.public_path.name == "full-hour.mp3"
 
 
+def test_paths_use_requested_audio_extension(tmp_path):
+    manager = AssetManager(tmp_path / "generated", tmp_path / "public")
+    playback = datetime(2026, 8, 18, 14, tzinfo=ZoneInfo("Europe/Berlin"))
+
+    asset = manager.paths(
+        "wittstock", AnnouncementKind.FULL_HOUR, playback, "flac"
+    )
+
+    assert asset.versioned_path.name == "14-00-full.flac"
+    assert asset.public_path.name == "full-hour.flac"
+
+
 @pytest.mark.skipif(os.name != "posix", reason="POSIX file modes are required")
 def test_public_asset_is_world_readable(tmp_path):
     manager = AssetManager(tmp_path / "generated", tmp_path / "public")
