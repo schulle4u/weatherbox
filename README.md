@@ -8,6 +8,7 @@ Während der Wiedergabe besteht keine Abhängigkeit zum TTS- oder Wetterdienst.
 ## Funktionsumfang
 
 - beliebig viele Standorte ausschließlich über YAML konfigurierbar
+- Temperatureinheit (`c` oder `f`) je Standort konfigurierbar
 - halbstündliche und stündliche Ansagen mit standortspezifischen Templates
 - YAML-basierte deutsche und englische Sprachausgabe je Standort
 - Forecast für den geplanten Wiedergabezeitpunkt über Open-Meteo oder DWD
@@ -84,9 +85,9 @@ Derzeit sind folgende Variablen implementiert:
 | `{location}` | Konfigurierter Anzeigename des Standorts |
 | `{latitude}` | Breitengrad des Standorts |
 | `{longitude}` | Längengrad des Standorts |
-| `{temperature}` | Vorhergesagte Temperatur in Grad Celsius |
-| `{apparent_temperature}` | Vorhergesagte gefühlte Temperatur in Grad Celsius |
-| `{dew_point}` | Vorhergesagter Taupunkt in Grad Celsius |
+| `{temperature}` | Vorhergesagte Temperatur in der für den Standort konfigurierten Einheit |
+| `{apparent_temperature}` | Vorhergesagte gefühlte Temperatur in der für den Standort konfigurierten Einheit |
+| `{dew_point}` | Vorhergesagter Taupunkt in der für den Standort konfigurierten Einheit |
 | `{humidity}` | Relative Luftfeuchtigkeit in Prozent |
 | `{pressure}` | Luftdruck an der Oberfläche in Hektopascal |
 | `{weather_description}` | Lokalisierte Beschreibung des providerunabhängigen WMO-Wettercodes, zum Beispiel `teilweise bewölkt` |
@@ -157,6 +158,7 @@ locations:
     latitude: 53.16
     longitude: 12.48
     timezone: Europe/Berlin
+    temperature_unit: c
     weather:
       # WarnWetter-/MOS-Kennung für Wittstock-Rote Mühle
       dwd_station_id: F143
@@ -176,6 +178,14 @@ Eine Mittelwertbildung findet bewusst nicht statt. Warnungen werden vereinigt
 und Duplikate entsprechend der Warnpriorität entfernt. Wenn nur ein Provider
 erreichbar ist, wird dessen Ergebnis weiterverwendet; erst der Ausfall aller
 Provider lässt den Abruf fehlschlagen.
+
+Temperaturwerte werden providerunabhängig und im Cache stets in Grad Celsius
+gehalten. Erst beim Aufbau einer Ansage rechnet Weatherbox `temperature`,
+`apparent_temperature` und `dew_point` anhand von
+`locations.<id>.temperature_unit` in Celsius (`c`, Standard) oder Fahrenheit
+(`f`) um. So können mehrere Standorte mit unterschiedlichen Einheiten dieselben
+Wetterprovider verwenden. Das jeweilige Template sollte die Einheit passend als
+„Grad Celsius“ beziehungsweise „Grad Fahrenheit“ benennen.
 
 Die Stationskennung ist nicht automatisch die numerische `Stations_id` aus den
 CDC-Open-Data-Dateien. `stationOverviewExtended` liefert nur WarnWetter-/MOS-
@@ -220,6 +230,7 @@ locations:
     latitude: 53.16
     longitude: 12.48
     timezone: Europe/Berlin
+    temperature_unit: c
     language: de
 
   london:
@@ -227,6 +238,7 @@ locations:
     latitude: 51.51
     longitude: -0.13
     timezone: Europe/London
+    temperature_unit: f
     language: en
     announcements:
       full_hour:

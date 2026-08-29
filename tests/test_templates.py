@@ -1,9 +1,10 @@
+from dataclasses import replace
 from datetime import timedelta
 
 import pytest
 
 from weatherbox.errors import TemplateRenderError
-from weatherbox.models import WeatherWarning
+from weatherbox.models import TemperatureUnit, WeatherWarning
 from weatherbox.templates import build_context, render_template
 
 
@@ -11,6 +12,21 @@ def test_render_valid_template(location, weather, now, german_formatter):
     context = build_context(location, now.replace(hour=14, minute=0), weather, german_formatter)
     result = render_template("{time} in {location}: {temperature} Grad, Wind aus {wind_direction}.", context)
     assert result == "vierzehn Uhr in Wittstock: 18,2 Grad, Wind aus Südwesten."
+
+
+def test_temperature_values_are_converted_to_location_unit(
+    location, weather, now, german_formatter
+):
+    fahrenheit_location = replace(
+        location, temperature_unit=TemperatureUnit.FAHRENHEIT
+    )
+
+    context = build_context(fahrenheit_location, now, weather, german_formatter)
+
+    assert context["temperature"] == "64,8"
+    assert context["apparent_temperature"] == "63,5"
+    assert context["dew_point"] == "53,8"
+    assert weather.temperature == 18.2
 
 
 @pytest.mark.parametrize(

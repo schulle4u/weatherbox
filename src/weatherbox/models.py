@@ -42,6 +42,19 @@ class AnnouncementStatus(StrEnum):
     EXPIRED = "EXPIRED"
 
 
+class TemperatureUnit(StrEnum):
+    """Temperature unit used when presenting weather data for a location."""
+
+    CELSIUS = "c"
+    FAHRENHEIT = "f"
+
+    def from_celsius(self, value: float | None) -> float | None:
+        """Convert an internal Celsius value to this display unit."""
+        if value is None or self is TemperatureUnit.CELSIUS:
+            return value
+        return value * 9 / 5 + 32
+
+
 @dataclass(frozen=True, slots=True)
 class WeatherWarning:
     """One official weather warning and its validity period."""
@@ -216,6 +229,7 @@ class Location:
     jingles: dict[AnnouncementKind, JingleAssets] = field(default_factory=dict)
     language: str = "de"
     dwd_station_id: str | None = None
+    temperature_unit: TemperatureUnit = TemperatureUnit.CELSIUS
 
 
 @dataclass(frozen=True, slots=True)

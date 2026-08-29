@@ -122,6 +122,8 @@ locations:
     latitude: 53.16
     longitude: 12.48
     timezone: Europe/Berlin
+    # Temperatureinheit für Ansagen: c (Celsius) oder f (Fahrenheit).
+    temperature_unit: c
     language: de
     enabled: true
     weather:

@@ -18,6 +18,7 @@ from weatherbox.models import (
     AnnouncementSpec,
     JingleAssets,
     Location,
+    TemperatureUnit,
 )
 
 
@@ -481,6 +482,15 @@ def load_config(path: str | Path) -> Config:
             ) from exc
         language = str(location_raw.get("language", default_language))
         language_catalog.get(language)
+        raw_temperature_unit = str(
+            location_raw.get("temperature_unit", TemperatureUnit.CELSIUS.value)
+        ).lower()
+        try:
+            temperature_unit = TemperatureUnit(raw_temperature_unit)
+        except ValueError as exc:
+            raise ConfigurationError(
+                f"Location '{location_id}': temperature_unit must be 'c' or 'f'"
+            ) from exc
 
         location_announcements = _mapping(location_raw, "announcements")
         announcement_specs: dict[AnnouncementKind, AnnouncementSpec] = {}
@@ -544,6 +554,7 @@ def load_config(path: str | Path) -> Config:
             jingles=jingles,
             language=language,
             dwd_station_id=dwd_station_id,
+            temperature_unit=temperature_unit,
         )
 
     provider = str(tts.get("provider", "piper"))

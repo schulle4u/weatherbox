@@ -11,6 +11,10 @@ from weatherbox.localization import LanguageFormatter
 from weatherbox.models import Location, WeatherData
 
 
+TEMPERATURE_FIELDS = frozenset(
+    {"temperature", "apparent_temperature", "dew_point"}
+)
+
 ALLOWED_FIELDS = frozenset(
     {
         "greeting", "time", "hour", "minute", "date", "location", "latitude", "longitude",
@@ -89,7 +93,10 @@ def build_context(
         "cloud_cover", "wind_speed", "wind_gusts", "precipitation",
         "precipitation_probability",
     ):
-        context[name] = formatter.format_decimal(getattr(weather, name))
+        value = getattr(weather, name)
+        if name in TEMPERATURE_FIELDS:
+            value = location.temperature_unit.from_celsius(value)
+        context[name] = formatter.format_decimal(value)
     return context
 
 

@@ -11,9 +11,37 @@ from weatherbox.weather import DWDProvider, MergedWeatherProvider, create_weathe
 def test_load_config_and_resolve_paths(tmp_path):
     config = load_config(write_test_config(tmp_path / "config.yaml"))
     assert config.locations["wittstock"].name == "Wittstock"
+    assert config.locations["wittstock"].temperature_unit == "c"
     assert config.output.public_dir == tmp_path / "runtime/public"
     assert config.locations["wittstock"].announcements[AnnouncementKind.FULL_HOUR].enabled
     assert config.output.generated_retention_days is None
+
+
+def test_location_temperature_unit_can_be_configured(tmp_path):
+    path = write_test_config(tmp_path / "config.yaml")
+    path.write_text(
+        path.read_text(encoding="utf-8").replace(
+            "    timezone: Europe/Berlin",
+            "    timezone: Europe/Berlin\n    temperature_unit: f",
+        ),
+        encoding="utf-8",
+    )
+
+    assert load_config(path).locations["wittstock"].temperature_unit == "f"
+
+
+def test_invalid_location_temperature_unit_is_rejected(tmp_path):
+    path = write_test_config(tmp_path / "config.yaml")
+    path.write_text(
+        path.read_text(encoding="utf-8").replace(
+            "    timezone: Europe/Berlin",
+            "    timezone: Europe/Berlin\n    temperature_unit: kelvin",
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ConfigurationError, match="temperature_unit must be 'c' or 'f'"):
+        load_config(path)
 
 
 def test_generated_asset_retention_can_be_configured(tmp_path):
