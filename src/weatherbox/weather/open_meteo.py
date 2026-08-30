@@ -20,6 +20,32 @@ HOURLY_FIELDS = (
     "precipitation_probability", "wind_speed_10m", "wind_direction_10m", "wind_gusts_10m",
 )
 
+DAILY_FIELDS = (
+    "sunrise",
+    "sunset",
+    "temperature_2m_min",
+    "temperature_2m_max",
+    "precipitation_sum",
+    "precipitation_probability_max",
+    "precipitation_hours",
+    "cloud_cover_mean",
+    "weather_code",
+    "wind_speed_10m_max",
+    "wind_gusts_10m_max",
+)
+
+DAILY_MODEL_FIELDS = {
+    "temperature_2m_min": "day_temperature_min",
+    "temperature_2m_max": "day_temperature_max",
+    "precipitation_sum": "day_precipitation_sum",
+    "precipitation_probability_max": "day_precipitation_probability_max",
+    "precipitation_hours": "day_precipitation_hours",
+    "cloud_cover_mean": "day_cloud_cover_mean",
+    "weather_code": "day_weather_code",
+    "wind_speed_10m_max": "day_wind_speed_max",
+    "wind_gusts_10m_max": "day_wind_gusts_max",
+}
+
 
 class OpenMeteoProvider:
     """Fetch location forecasts from an Open-Meteo-compatible endpoint."""
@@ -38,7 +64,7 @@ class OpenMeteoProvider:
                 "latitude": location.latitude,
                 "longitude": location.longitude,
                 "hourly": ",".join(HOURLY_FIELDS),
-                "daily": "sunrise,sunset",
+                "daily": ",".join(DAILY_FIELDS),
                 "timezone": location.timezone,
                 "forecast_days": 2,
                 "wind_speed_unit": "kmh",
@@ -61,19 +87,28 @@ class OpenMeteoProvider:
         zone = ZoneInfo(timezone)
         hourly = payload["hourly"]
         daily = payload.get("daily", {})
-        sunrise_by_date: dict[str, datetime] = {}
-        sunset_by_date: dict[str, datetime] = {}
+        daily_by_date: dict[str, dict[str, Any]] = {}
         for index, date in enumerate(daily.get("time", [])):
-            sunrise = daily.get("sunrise", [])[index]
-            sunset = daily.get("sunset", [])[index]
-            sunrise_by_date[date] = _local_datetime(sunrise, zone)
-            sunset_by_date[date] = _local_datetime(sunset, zone)
+            values: dict[str, Any] = {
+                model_field: _at(daily, api_field, index)
+                for api_field, model_field in DAILY_MODEL_FIELDS.items()
+            }
+            weather_code = values.get("day_weather_code")
+            values["day_weather_code"] = (
+                int(weather_code) if weather_code is not None else None
+            )
+            sunrise = _value_at(daily, "sunrise", index)
+            sunset = _value_at(daily, "sunset", index)
+            values["sunrise"] = _local_datetime(sunrise, zone) if sunrise else None
+            values["sunset"] = _local_datetime(sunset, zone) if sunset else None
+            daily_by_date[str(date)] = values
 
         forecasts: list[WeatherData] = []
         times = hourly["time"]
         for index, value in enumerate(times):
             forecast_at = _local_datetime(value, zone)
             values = {field: _at(hourly, field, index) for field in HOURLY_FIELDS}
+            day_values = daily_by_date.get(forecast_at.date().isoformat(), {})
             forecasts.append(
                 WeatherData(
                     forecast_at=forecast_at,
@@ -89,8 +124,7 @@ class OpenMeteoProvider:
                     wind_speed=values["wind_speed_10m"],
                     wind_direction=values["wind_direction_10m"],
                     wind_gusts=values["wind_gusts_10m"],
-                    sunrise=sunrise_by_date.get(forecast_at.date().isoformat()),
-                    sunset=sunset_by_date.get(forecast_at.date().isoformat()),
+                    **day_values,
                 ).with_source("open-meteo")
             )
         return ForecastBundle(fetched_at=datetime.now().astimezone(), forecasts=tuple(forecasts))
@@ -108,3 +142,11 @@ def _at(hourly: dict[str, list[Any]], field: str, index: int) -> float | None:
     if index >= len(values) or values[index] is None:
         return None
     return float(values[index])
+
+
+def _value_at(data: dict[str, list[Any]], field: str, index: int) -> Any | None:
+    """Return an optional unmodified series item."""
+    values = data.get(field, [])
+    if index >= len(values):
+        return None
+    return values[index]

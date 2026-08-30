@@ -89,6 +89,7 @@ class DWDProvider:
             for item in station.get("days", [])
             if isinstance(item, dict) and item.get("dayDate")
         }
+        precipitation_hours = _precipitation_hours_by_date(forecast, start, step)
         forecasts: list[WeatherData] = []
         for index in range(len(temperatures)):
             forecast_at = start + index * step
@@ -113,6 +114,15 @@ class DWDProvider:
                     wind_gusts=_tenths_at_or_day(forecast, "windGust", index, day),
                     sunrise=_optional_timestamp(day.get("sunrise"), zone),
                     sunset=_optional_timestamp(day.get("sunset"), zone),
+                    day_temperature_min=_tenths(day.get("temperatureMin")),
+                    day_temperature_max=_tenths(day.get("temperatureMax")),
+                    day_precipitation_sum=_tenths(day.get("precipitation")),
+                    day_precipitation_hours=precipitation_hours.get(
+                        forecast_at.date().isoformat()
+                    ),
+                    day_weather_code=_daily_weather_code(day),
+                    day_wind_speed_max=_tenths(day.get("windSpeed")),
+                    day_wind_gusts_max=_tenths(day.get("windGust")),
                 ).with_source("dwd")
             )
         return ForecastBundle(
@@ -147,6 +157,33 @@ def _tenths_at(data: dict[str, Any], field: str, index: int) -> float | None:
     """Return a DWD series item converted from tenths to its display unit."""
     value = _at(data, field, index)
     return value / 10 if value is not None else None
+
+
+def _tenths(value: Any) -> float | None:
+    """Convert an optional DWD tenths value to its display unit."""
+    return float(value) / 10 if value is not None else None
+
+
+def _daily_weather_code(day: dict[str, Any]) -> int | None:
+    """Map a daily DWD icon to the provider-independent WMO code."""
+    value = day.get("icon")
+    if value is None:
+        return None
+    return DWD_TO_WMO_CODE.get(int(value))
+
+
+def _precipitation_hours_by_date(
+    forecast: dict[str, Any], start: datetime, step: timedelta
+) -> dict[str, float]:
+    """Count forecast intervals with precipitation for each local date."""
+    result: dict[str, float] = {}
+    interval_hours = step.total_seconds() / 3600
+    for index, value in enumerate(_series(forecast.get("precipitationTotal"))):
+        date = (start + index * step).date().isoformat()
+        result.setdefault(date, 0.0)
+        if value is not None and float(value) > 0:
+            result[date] += interval_hours
+    return result
 
 
 def _tenths_at_or_day(

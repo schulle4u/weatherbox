@@ -66,6 +66,15 @@ def weather(now: datetime) -> WeatherData:
         wind_gusts=21,
         sunrise=now.replace(hour=5, minute=48),
         sunset=now.replace(hour=20, minute=28),
+        day_temperature_min=13.4,
+        day_temperature_max=22.8,
+        day_precipitation_sum=2.4,
+        day_precipitation_probability_max=65,
+        day_precipitation_hours=3,
+        day_cloud_cover_mean=78,
+        day_weather_code=80,
+        day_wind_speed_max=24.6,
+        day_wind_gusts_max=41.2,
     )
 
 

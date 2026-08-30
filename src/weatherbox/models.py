@@ -115,6 +115,15 @@ WEATHER_VALUE_FIELDS = (
     "wind_gusts",
     "sunrise",
     "sunset",
+    "day_temperature_min",
+    "day_temperature_max",
+    "day_precipitation_sum",
+    "day_precipitation_probability_max",
+    "day_precipitation_hours",
+    "day_cloud_cover_mean",
+    "day_weather_code",
+    "day_wind_speed_max",
+    "day_wind_gusts_max",
 )
 
 
@@ -137,6 +146,15 @@ class WeatherData:
     wind_gusts: float | None = None
     sunrise: datetime | None = None
     sunset: datetime | None = None
+    day_temperature_min: float | None = None
+    day_temperature_max: float | None = None
+    day_precipitation_sum: float | None = None
+    day_precipitation_probability_max: float | None = None
+    day_precipitation_hours: float | None = None
+    day_cloud_cover_mean: float | None = None
+    day_weather_code: int | None = None
+    day_wind_speed_max: float | None = None
+    day_wind_gusts_max: float | None = None
     warnings: tuple[WeatherWarning, ...] = ()
     data_sources: tuple[tuple[str, str], ...] = ()
 

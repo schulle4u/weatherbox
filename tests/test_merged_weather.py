@@ -29,12 +29,15 @@ def test_merge_uses_field_priority_fallback_and_time_tolerance(location, now):
         apparent_temperature=17,
         weather_code=2,
         precipitation_probability=30,
+        day_temperature_min=12,
+        day_cloud_cover_mean=60,
     ).with_source("open-meteo")
     dwd_weather = WeatherData(
         forecast_at=now.replace(hour=14, minute=15),
         temperature=19,
         humidity=70,
         weather_code=61,
+        day_temperature_min=13,
     ).with_source("dwd")
     provider = MergedWeatherProvider(
         (
@@ -58,6 +61,9 @@ def test_merge_uses_field_priority_fallback_and_time_tolerance(location, now):
     assert merged.apparent_temperature == 17
     assert merged.weather_code == 2
     assert merged.source_for("weather_code") == "open-meteo"
+    assert merged.day_temperature_min == 13
+    assert merged.source_for("day_temperature_min") == "dwd"
+    assert merged.day_cloud_cover_mean == 60
 
 
 def test_merge_unions_and_deduplicates_warnings_by_priority(location, now, weather):

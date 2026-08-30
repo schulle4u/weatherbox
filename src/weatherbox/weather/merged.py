@@ -20,6 +20,18 @@ from weatherbox.weather.base import WeatherProvider
 
 LOG = logging.getLogger(__name__)
 
+DAILY_PRIORITY_FIELDS = {
+    "day_temperature_min": "temperature",
+    "day_temperature_max": "temperature",
+    "day_precipitation_sum": "precipitation",
+    "day_precipitation_probability_max": "precipitation_probability",
+    "day_precipitation_hours": "precipitation",
+    "day_cloud_cover_mean": "cloud_cover",
+    "day_weather_code": "weather_code",
+    "day_wind_speed_max": "wind_speed",
+    "day_wind_gusts_max": "wind_gusts",
+}
+
 
 class MergedWeatherProvider:
     """Fetch providers concurrently and combine their data by field priority."""
@@ -109,7 +121,11 @@ class MergedWeatherProvider:
         values: dict[str, object] = {}
         sources: list[tuple[str, str]] = []
         for field_name in WEATHER_VALUE_FIELDS:
-            priority = self.field_priority.get(field_name, self.default_priority)
+            priority = self.field_priority.get(field_name)
+            if priority is None:
+                priority = self.field_priority.get(
+                    DAILY_PRIORITY_FIELDS.get(field_name, ""), self.default_priority
+                )
             for provider_name in priority:
                 candidate = nearest.get(provider_name)
                 if candidate is None:

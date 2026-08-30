@@ -26,7 +26,37 @@ def test_temperature_values_are_converted_to_location_unit(
     assert context["temperature"] == "64,8"
     assert context["apparent_temperature"] == "63,5"
     assert context["dew_point"] == "53,8"
+    assert context["day_temperature_min"] == "56,1"
+    assert context["day_temperature_max"] == "73"
     assert weather.temperature == 18.2
+
+
+def test_daily_weather_placeholders_and_summaries_are_available(
+    location, weather, now, german_formatter
+):
+    context = build_context(location, now, weather, german_formatter)
+
+    assert context["day_temperature_min"] == "13,4"
+    assert context["day_temperature_max"] == "22,8"
+    assert context["day_precipitation_sum"] == "2,4"
+    assert context["day_precipitation_probability_max"] == "65"
+    assert context["day_precipitation_hours"] == "3"
+    assert context["day_cloud_cover_mean"] == "78"
+    assert context["day_weather_description"] == "leichte Regenschauer"
+    assert context["day_wind_speed_max"] == "24,6"
+    assert context["day_wind_gusts_max"] == "41,2"
+    assert "zwischen 13,4 und 22,8 Grad" in context["day_weather_summary"]
+    assert context["day_cloud_summary"] == "Über den Tag ist es stark bewölkt."
+    assert context["day_precipitation_summary"] == (
+        "Im Tagesverlauf ist Niederschlag wahrscheinlich. "
+        "Insgesamt werden 2,4 Millimeter erwartet."
+    )
+
+    rendered = render_template(
+        "{day_weather_summary} {day_cloud_summary} {day_precipitation_summary}",
+        context,
+    )
+    assert rendered.startswith("Für heute wird folgende Wetterlage erwartet")
 
 
 @pytest.mark.parametrize(

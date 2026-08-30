@@ -57,6 +57,27 @@ class GreetingRules:
 
 
 @dataclass(frozen=True, slots=True)
+class DaySummaryRules:
+    """Localized sentence patterns for daily weather summaries."""
+
+    weather_with_temperatures: str
+    weather_conditions_only: str
+    weather_temperatures_only: str
+    cloud_clear: str
+    cloud_mostly_clear: str
+    cloud_partly_cloudy: str
+    cloud_mostly_cloudy: str
+    cloud_overcast: str
+    precipitation_none: str
+    precipitation_unlikely: str
+    precipitation_possible: str
+    precipitation_likely: str
+    precipitation_very_likely: str
+    precipitation_expected: str
+    precipitation_with_amount: str
+
+
+@dataclass(frozen=True, slots=True)
 class LanguageFormatter:
     """Format numbers, dates, times, and weather terms for one language."""
 
@@ -70,6 +91,7 @@ class LanguageFormatter:
     wind_directions: tuple[str, ...]
     no_active_warning: str
     warning_separator: str
+    day_summaries: DaySummaryRules | None
 
     def format_number(self, number: int, *, context: str | None = None) -> str:
         """Spell an integer from 0 through 59, applying contextual overrides."""
@@ -144,6 +166,84 @@ class LanguageFormatter:
         if degrees is None:
             return None
         return self.wind_directions[int((degrees % 360) / 22.5 + 0.5) % 16]
+
+    def day_weather_summary(
+        self,
+        description: str | None,
+        temperature_min: str | None,
+        temperature_max: str | None,
+    ) -> str | None:
+        """Build a localized daily conditions and temperature summary."""
+        rules = self.day_summaries
+        if rules is None:
+            return None
+        if description is not None and temperature_min is not None and temperature_max is not None:
+            return rules.weather_with_temperatures.format(
+                description=description,
+                temperature_min=temperature_min,
+                temperature_max=temperature_max,
+            )
+        if description is not None:
+            return rules.weather_conditions_only.format(description=description)
+        if temperature_min is not None and temperature_max is not None:
+            return rules.weather_temperatures_only.format(
+                temperature_min=temperature_min,
+                temperature_max=temperature_max,
+            )
+        return None
+
+    def day_cloud_summary(self, cloud_cover_mean: float | None) -> str | None:
+        """Describe mean daily cloud cover using stable meteorological bands."""
+        rules = self.day_summaries
+        if rules is None or cloud_cover_mean is None:
+            return None
+        if cloud_cover_mean <= 10:
+            return rules.cloud_clear
+        if cloud_cover_mean <= 30:
+            return rules.cloud_mostly_clear
+        if cloud_cover_mean <= 70:
+            return rules.cloud_partly_cloudy
+        if cloud_cover_mean <= 90:
+            return rules.cloud_mostly_cloudy
+        return rules.cloud_overcast
+
+    def day_precipitation_summary(
+        self,
+        probability_max: float | None,
+        precipitation_sum: float | None,
+    ) -> str | None:
+        """Describe daily precipitation likelihood and an optional total amount."""
+        rules = self.day_summaries
+        if rules is None:
+            return None
+        if probability_max is None:
+            if precipitation_sum is None:
+                return None
+            summary = (
+                rules.precipitation_none
+                if precipitation_sum <= 0
+                else rules.precipitation_expected
+            )
+        elif probability_max <= 10:
+            summary = (
+                rules.precipitation_unlikely
+                if precipitation_sum is not None and precipitation_sum > 0
+                else rules.precipitation_none
+            )
+        elif probability_max <= 30:
+            summary = rules.precipitation_unlikely
+        elif probability_max <= 60:
+            summary = rules.precipitation_possible
+        elif probability_max <= 80:
+            summary = rules.precipitation_likely
+        else:
+            summary = rules.precipitation_very_likely
+        if precipitation_sum is not None and precipitation_sum > 0:
+            return rules.precipitation_with_amount.format(
+                summary=summary,
+                amount=self.format_decimal(precipitation_sum),
+            )
+        return summary
 
 
 class LanguageCatalog:
@@ -237,6 +337,7 @@ def _parse_language(raw: Any, source: str) -> LanguageFormatter:
         warning_raw = raw.get("warnings", {})
         if not isinstance(warning_raw, dict):
             raise ConfigurationError(f"'warnings' must be an object: {source}")
+        day_summaries = _parse_day_summaries(raw.get("summaries"), source)
     except KeyError as exc:
         raise ConfigurationError(f"Required field {exc} is missing in language file: {source}") from exc
     except TypeError as exc:
@@ -271,7 +372,55 @@ def _parse_language(raw: Any, source: str) -> LanguageFormatter:
         wind_directions=wind_directions,
         no_active_warning=str(warning_raw.get("none", "No active weather warning")),
         warning_separator=str(warning_raw.get("separator", "; ")),
+        day_summaries=day_summaries,
     )
+
+
+def _parse_day_summaries(raw: Any, source: str) -> DaySummaryRules | None:
+    """Parse optional localized daily-summary patterns."""
+    if raw is None:
+        return None
+    if not isinstance(raw, dict):
+        raise ConfigurationError(f"'summaries' must be an object: {source}")
+    weather = _required_mapping(raw, "weather", source)
+    cloud = _required_mapping(raw, "cloud", source)
+    precipitation = _required_mapping(raw, "precipitation", source)
+    try:
+        return DaySummaryRules(
+            weather_with_temperatures=_validated_pattern(
+                weather["with_temperatures"],
+                {"description", "temperature_min", "temperature_max"},
+                source,
+            ),
+            weather_conditions_only=_validated_pattern(
+                weather["conditions_only"], {"description"}, source
+            ),
+            weather_temperatures_only=_validated_pattern(
+                weather["temperatures_only"],
+                {"temperature_min", "temperature_max"},
+                source,
+            ),
+            cloud_clear=_required_text(cloud, "clear", source),
+            cloud_mostly_clear=_required_text(cloud, "mostly_clear", source),
+            cloud_partly_cloudy=_required_text(cloud, "partly_cloudy", source),
+            cloud_mostly_cloudy=_required_text(cloud, "mostly_cloudy", source),
+            cloud_overcast=_required_text(cloud, "overcast", source),
+            precipitation_none=_required_text(precipitation, "none", source),
+            precipitation_unlikely=_required_text(precipitation, "unlikely", source),
+            precipitation_possible=_required_text(precipitation, "possible", source),
+            precipitation_likely=_required_text(precipitation, "likely", source),
+            precipitation_very_likely=_required_text(
+                precipitation, "very_likely", source
+            ),
+            precipitation_expected=_required_text(precipitation, "expected", source),
+            precipitation_with_amount=_validated_pattern(
+                precipitation["with_amount"], {"summary", "amount"}, source
+            ),
+        )
+    except KeyError as exc:
+        raise ConfigurationError(
+            f"Required summary field {exc} is missing in language file: {source}"
+        ) from exc
 
 
 def _required_mapping(parent: dict[str, Any], key: str, source: str) -> dict[str, Any]:

@@ -143,6 +143,18 @@ Derzeit sind folgende Variablen implementiert:
 | `{wind_gusts}` | Geschwindigkeit der Windböen in Kilometern pro Stunde |
 | `{precipitation}` | Vorhergesagte Niederschlagsmenge in Millimetern |
 | `{precipitation_probability}` | Niederschlagswahrscheinlichkeit in Prozent |
+| `{day_temperature_min}` | Tiefste Temperatur des lokalen Kalendertags in der konfigurierten Temperatureinheit |
+| `{day_temperature_max}` | Höchste Temperatur des lokalen Kalendertags in der konfigurierten Temperatureinheit |
+| `{day_precipitation_sum}` | Erwartete Niederschlagssumme des lokalen Kalendertags in Millimetern |
+| `{day_precipitation_probability_max}` | Höchste stündliche Niederschlagswahrscheinlichkeit des lokalen Kalendertags in Prozent |
+| `{day_precipitation_hours}` | Anzahl der Stunden mit erwartetem Niederschlag am lokalen Kalendertag |
+| `{day_cloud_cover_mean}` | Mittlerer Bewölkungsgrad über den gesamten lokalen Kalendertag in Prozent |
+| `{day_weather_description}` | Lokalisierte Beschreibung der markantesten Wetterlage des lokalen Kalendertags |
+| `{day_wind_speed_max}` | Höchste Windgeschwindigkeit des lokalen Kalendertags in Kilometern pro Stunde |
+| `{day_wind_gusts_max}` | Höchste Böengeschwindigkeit des lokalen Kalendertags in Kilometern pro Stunde |
+| `{day_weather_summary}` | Lokalisierte Zusammenfassung aus Tageswetterlage sowie Tagesminimum und -maximum |
+| `{day_cloud_summary}` | Lokalisierte, aus dem mittleren Bewölkungsgrad abgeleitete Tageszusammenfassung |
+| `{day_precipitation_summary}` | Lokalisierte Zusammenfassung aus maximaler Niederschlagswahrscheinlichkeit und erwarteter Niederschlagssumme |
 | `{sunrise}` | Sonnenaufgang in den Zeitwörtern der Standortsprache, zum Beispiel `fünf Uhr achtundvierzig` |
 | `{sunset}` | Sonnenuntergang in den Zeitwörtern der Standortsprache |
 | `{forecast_time}` | Zeitpunkt der verwendeten Wetterdaten in den Zeitwörtern der Standortsprache |
@@ -168,6 +180,15 @@ kontrolliert ab. Das bisher veröffentlichte Audio-Asset bleibt dabei erhalten.
 sind nur verwendbar, wenn zum Wiedergabezeitpunkt mindestens eine entsprechende
 Warnung aktiv ist. Bei mehreren Warnungen liefert das Modul für die einzelnen
 Warnfelder die höchste Warnstufe; `{warning_text}` verbindet alle Überschriften.
+Die `day_`-Variablen beziehen sich auf das lokale Kalenderdatum der geplanten
+Wiedergabe. Die Tageszusammenfassungen sind vollständige Sätze und können direkt
+aneinandergereiht werden, zum Beispiel:
+
+```yaml
+template: >
+  Es ist {time} in {location}. {day_weather_summary}
+  {day_cloud_summary} {day_precipitation_summary}
+```
 
 ## Wetterprovider
 
@@ -225,7 +246,8 @@ Provider lässt den Abruf fehlschlagen.
 
 Temperaturwerte werden providerunabhängig und im Cache stets in Grad Celsius
 gehalten. Erst beim Aufbau einer Ansage rechnet Weatherbox `temperature`,
-`apparent_temperature` und `dew_point` anhand von
+`apparent_temperature`, `dew_point`, `day_temperature_min` und
+`day_temperature_max` anhand von
 `locations.<id>.temperature_unit` in Celsius (`c`, Standard) oder Fahrenheit
 (`f`) um. So können mehrere Standorte mit unterschiedlichen Einheiten dieselben
 Wetterprovider verwenden. Das jeweilige Template sollte die Einheit passend als
@@ -242,10 +264,14 @@ recherchieren, falls die in der
 [DWD-API-Dokumentation](https://dwd.api.bund.dev/) verlinkte DWD-Liste nicht
 erreichbar ist. Temperaturen, Feuchte, Druck, Niederschlag und Wind werden aus
 den DWD-Zehntelwerten in die gleichen Einheiten wie bei Open-Meteo umgerechnet.
-Da die DWD-Antwort nicht alle Open-Meteo-Felder liefert, bleiben insbesondere
-`{apparent_temperature}`, `{cloud_cover}` und
-`{precipitation_probability}` beim DWD unbesetzt und sollten in
-DWD-spezifischen Templates nicht verwendet werden.
+Der DWD-Provider übernimmt zusätzlich die täglichen Minimal- und
+Maximaltemperaturen, Niederschlagssumme, Wetterlage sowie Wind- und Böenmaxima
+aus dem `days`-Abschnitt und ermittelt Niederschlagsstunden aus der stündlichen
+Reihe. Da die DWD-Antwort nicht alle Open-Meteo-Felder liefert, bleiben
+insbesondere `{apparent_temperature}`, `{cloud_cover}`,
+`{precipitation_probability}`, `{day_cloud_cover_mean}` und
+`{day_precipitation_probability_max}` beim DWD unbesetzt. Bei gemeinsamem
+Betrieb ergänzt Open-Meteo diese Werte entsprechend der Merge-Priorität.
 
 ## Sprachen und Aussprachewörterbücher
 
@@ -258,7 +284,15 @@ zugehörigen YAML-Wörterbücher liegen unter `src/weatherbox/lang/`. Sie enthal
 - Zeit- und Datumsmuster sowie Monatsnamen
 - Dezimaltrennzeichen
 - Beschreibungen der providerunabhängigen WMO-Wettercodes
+- Satzmuster für Wetter-, Bewölkungs- und Niederschlagszusammenfassungen
 - 16 Windrichtungen
+
+Die eingebauten Zusammenfassungen ordnen die mittlere Tagesbewölkung festen
+Bewölkungsstufen und die maximale Niederschlagswahrscheinlichkeit festen
+Wahrscheinlichkeitsstufen zu. Sämtliche ausgegebenen Sätze stehen unter
+`summaries` in der jeweiligen Sprachdatei und können dort ersetzt werden. Bei
+älteren eigenen Sprachdateien darf der Abschnitt fehlen; die übrige Sprache
+bleibt dann nutzbar, während die drei Zusammenfassungsvariablen unbelegt sind.
 
 Die Sprache kann für jeden Standort separat gewählt werden:
 

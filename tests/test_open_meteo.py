@@ -23,6 +23,15 @@ def test_open_meteo_payload_is_mapped_to_internal_model():
             "time": ["2026-08-18"],
             "sunrise": ["2026-08-18T05:48"],
             "sunset": ["2026-08-18T20:28"],
+            "temperature_2m_min": [13.4],
+            "temperature_2m_max": [22.8],
+            "precipitation_sum": [2.4],
+            "precipitation_probability_max": [65],
+            "precipitation_hours": [3],
+            "cloud_cover_mean": [78],
+            "weather_code": [80],
+            "wind_speed_10m_max": [24.6],
+            "wind_gusts_10m_max": [41.2],
         },
     }
     bundle = OpenMeteoProvider._parse(payload, "Europe/Berlin")
@@ -31,4 +40,9 @@ def test_open_meteo_payload_is_mapped_to_internal_model():
     assert value.weather_code == 2
     assert value.forecast_at.utcoffset().total_seconds() == 7200
     assert value.sunrise.hour == 5
-
+    assert value.day_temperature_min == 13.4
+    assert value.day_temperature_max == 22.8
+    assert value.day_precipitation_probability_max == 65
+    assert value.day_cloud_cover_mean == 78
+    assert value.day_weather_code == 80
+    assert value.day_wind_gusts_max == 41.2

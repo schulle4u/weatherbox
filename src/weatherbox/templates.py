@@ -12,7 +12,13 @@ from weatherbox.models import Location, WeatherData
 
 
 TEMPERATURE_FIELDS = frozenset(
-    {"temperature", "apparent_temperature", "dew_point"}
+    {
+        "temperature",
+        "apparent_temperature",
+        "dew_point",
+        "day_temperature_min",
+        "day_temperature_max",
+    }
 )
 
 ALLOWED_FIELDS = frozenset(
@@ -25,6 +31,11 @@ ALLOWED_FIELDS = frozenset(
         "warning_count", "warning_level", "warning_event", "warning_headline",
         "warning_description", "warning_instruction", "warning_start", "warning_end",
         "warning_text", "temperature_source", "weather_source", "warning_source",
+        "day_temperature_min", "day_temperature_max", "day_precipitation_sum",
+        "day_precipitation_probability_max", "day_precipitation_hours",
+        "day_cloud_cover_mean", "day_weather_description", "day_wind_speed_max",
+        "day_wind_gusts_max", "day_weather_summary", "day_cloud_summary",
+        "day_precipitation_summary",
     }
 )
 
@@ -46,6 +57,7 @@ def build_context(
         "latitude": formatter.format_decimal(location.latitude),
         "longitude": formatter.format_decimal(location.longitude),
         "weather_description": formatter.weather_description(weather.weather_code),
+        "day_weather_description": formatter.weather_description(weather.day_weather_code),
         "weather_code": weather.weather_code,
         "wind_direction": formatter.wind_direction(weather.wind_direction),
         "wind_direction_degrees": formatter.format_decimal(weather.wind_direction),
@@ -92,11 +104,30 @@ def build_context(
         "temperature", "apparent_temperature", "dew_point", "humidity", "pressure",
         "cloud_cover", "wind_speed", "wind_gusts", "precipitation",
         "precipitation_probability",
+        "day_temperature_min", "day_temperature_max", "day_precipitation_sum",
+        "day_precipitation_probability_max", "day_precipitation_hours",
+        "day_cloud_cover_mean", "day_wind_speed_max", "day_wind_gusts_max",
     ):
         value = getattr(weather, name)
         if name in TEMPERATURE_FIELDS:
             value = location.temperature_unit.from_celsius(value)
         context[name] = formatter.format_decimal(value)
+    context.update(
+        {
+            "day_weather_summary": formatter.day_weather_summary(
+                context["day_weather_description"],
+                context["day_temperature_min"],
+                context["day_temperature_max"],
+            ),
+            "day_cloud_summary": formatter.day_cloud_summary(
+                weather.day_cloud_cover_mean
+            ),
+            "day_precipitation_summary": formatter.day_precipitation_summary(
+                weather.day_precipitation_probability_max,
+                weather.day_precipitation_sum,
+            ),
+        }
+    )
     return context
 
 

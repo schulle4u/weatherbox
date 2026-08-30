@@ -44,6 +44,10 @@ def test_dwd_payload_maps_forecast_units_daily_values_and_warning():
                     "windSpeed": 124,
                     "windDirection": 2250,
                     "windGust": 210,
+                    "temperatureMin": 134,
+                    "temperatureMax": 228,
+                    "precipitation": 4,
+                    "icon": 18,
                     "sunrise": 1787024880000,
                     "sunset": 1787077680000,
                 }
@@ -75,6 +79,13 @@ def test_dwd_payload_maps_forecast_units_daily_values_and_warning():
     assert first.wind_speed == 12.4
     assert first.wind_direction == 225
     assert first.sunrise is not None
+    assert first.day_temperature_min == 13.4
+    assert first.day_temperature_max == 22.8
+    assert first.day_precipitation_sum == 0.4
+    assert first.day_precipitation_hours == 1
+    assert first.day_weather_code == 80
+    assert first.day_wind_speed_max == 12.4
+    assert first.day_wind_gusts_max == 21
     assert second.precipitation == 0.4
     assert second.weather_code == 61
     assert bundle.warnings[0].level == 2

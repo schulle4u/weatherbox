@@ -21,6 +21,16 @@ def test_builtin_german_language_preserves_pronunciation():
     assert german.format_decimal(18.2) == "18,2"
     assert german.weather_description(2) == "der Himmel ist teilweise bewölkt"
     assert german.wind_direction(225) == "Südwesten"
+    assert german.day_cloud_summary(95) == (
+        "Über den Tag ist der Himmel überwiegend bedeckt."
+    )
+    assert german.day_precipitation_summary(20, 0) == (
+        "Niederschlag ist heute eher unwahrscheinlich."
+    )
+    assert german.day_precipitation_summary(10, 0.1) == (
+        "Niederschlag ist heute eher unwahrscheinlich. "
+        "Insgesamt werden 0,1 Millimeter erwartet."
+    )
 
 
 def test_builtin_english_language_formats_complete_context_values():
@@ -33,6 +43,13 @@ def test_builtin_english_language_formats_complete_context_values():
     assert english.format_decimal(18.2) == "18.2"
     assert english.weather_description(2) == "partly cloudy"
     assert english.wind_direction(225) == "southwest"
+    assert english.day_weather_summary("partly cloudy", "13.4", "22.8") == (
+        "Today's expected conditions are partly cloudy. "
+        "Temperatures range from 13.4 to 22.8 degrees."
+    )
+    assert english.day_cloud_summary(50) == (
+        "Skies will be partly cloudy throughout the day."
+    )
 
 
 def test_custom_language_file_can_override_builtin_language(tmp_path):
@@ -57,6 +74,20 @@ def test_exact_number_overrides_support_irregular_languages(tmp_path):
         yaml.safe_dump(data, allow_unicode=True, sort_keys=False), encoding="utf-8"
     )
     assert LanguageCatalog(tmp_path).get("custom").format_number(21) == "special twenty-one"
+
+
+def test_custom_language_without_daily_summaries_remains_compatible(tmp_path):
+    source = resources.files("weatherbox").joinpath("lang", "en.yaml")
+    data = yaml.safe_load(source.read_text(encoding="utf-8"))
+    data["code"] = "legacy"
+    del data["summaries"]
+    (tmp_path / "legacy.yaml").write_text(
+        yaml.safe_dump(data, allow_unicode=True, sort_keys=False), encoding="utf-8"
+    )
+
+    legacy = LanguageCatalog(tmp_path).get("legacy")
+
+    assert legacy.day_weather_summary("clear sky", "10", "20") is None
 
 
 def test_incomplete_language_file_is_rejected(tmp_path):

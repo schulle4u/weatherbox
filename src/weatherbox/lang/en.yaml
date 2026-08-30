@@ -104,6 +104,26 @@ warnings:
   none: no official weather warning is active
   separator: "; "
 
+summaries:
+  weather:
+    with_temperatures: "Today's expected conditions are {description}. Temperatures range from {temperature_min} to {temperature_max} degrees."
+    conditions_only: "Today's expected conditions are {description}."
+    temperatures_only: "Today's temperatures range from {temperature_min} to {temperature_max} degrees."
+  cloud:
+    clear: "Skies will remain mostly clear throughout the day."
+    mostly_clear: "Skies will be mostly clear throughout the day."
+    partly_cloudy: "Skies will be partly cloudy throughout the day."
+    mostly_cloudy: "Skies will be mostly cloudy throughout the day."
+    overcast: "Skies will be predominantly overcast throughout the day."
+  precipitation:
+    none: "No precipitation is expected today."
+    unlikely: "Precipitation is unlikely today."
+    possible: "Precipitation is possible during the day."
+    likely: "Precipitation is likely during the day."
+    very_likely: "Precipitation is very likely during the day."
+    expected: "Precipitation is expected during the day."
+    with_amount: "{summary} A total of {amount} millimeters is expected."
+
 wind:
   directions:
     - north

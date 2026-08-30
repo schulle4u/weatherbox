@@ -108,6 +108,26 @@ warnings:
   none: "Keine amtliche Wetterwarnung aktiv"
   separator: "; "
 
+summaries:
+  weather:
+    with_temperatures: "Für heute wird folgende Wetterlage erwartet: {description}. Die Temperaturen liegen zwischen {temperature_min} und {temperature_max} Grad."
+    conditions_only: "Für heute wird folgende Wetterlage erwartet: {description}."
+    temperatures_only: "Heute liegen die Temperaturen zwischen {temperature_min} und {temperature_max} Grad."
+  cloud:
+    clear: "Über den Tag bleibt der Himmel weitgehend wolkenlos."
+    mostly_clear: "Über den Tag ist es überwiegend gering bewölkt."
+    partly_cloudy: "Über den Tag ist es wechselnd bewölkt."
+    mostly_cloudy: "Über den Tag ist es stark bewölkt."
+    overcast: "Über den Tag ist der Himmel überwiegend bedeckt."
+  precipitation:
+    none: "Niederschlag ist heute nicht zu erwarten."
+    unlikely: "Niederschlag ist heute eher unwahrscheinlich."
+    possible: "Im Tagesverlauf ist Niederschlag möglich."
+    likely: "Im Tagesverlauf ist Niederschlag wahrscheinlich."
+    very_likely: "Im Tagesverlauf ist Niederschlag sehr wahrscheinlich."
+    expected: "Im Tagesverlauf wird Niederschlag erwartet."
+    with_amount: "{summary} Insgesamt werden {amount} Millimeter erwartet."
+
 wind:
   directions:
     - Norden
