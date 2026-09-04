@@ -1,3 +1,6 @@
+# Umfangreiches Konfigurationsbeispiel; vor Verwendung ins Projektverzeichnis
+# als config.yaml kopieren und Modelle sowie Audiodateien anpassen.
+# Für einen Start ohne zusätzliche Dateien: config.quickstart.yaml verwenden.
 application:
   log_level: INFO
   json_logs: false

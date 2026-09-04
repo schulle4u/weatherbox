@@ -1,0 +1,35 @@
+# Ins Projektverzeichnis als config.yaml kopieren.
+# Benötigt FFmpeg/FFprobe und Internetzugang; keine Modelle oder Jingles nötig.
+weather:
+  providers:
+    open-meteo: {}
+
+tts:
+  provider: gtts
+  fallback_provider: null
+
+output:
+  cache_dir: var/cache
+  generated_dir: var/generated
+  generated_retention_days: 30
+  public_dir: var/public
+  state_dir: var/state
+
+announcements:
+  half_hour:
+    template: >
+      Es ist {time}. Hier ist das Wetter für {location}.
+      Die Temperatur beträgt {temperature} Grad. {weather_description}.
+  full_hour:
+    template: >
+      Es ist {time} in {location}. {day_weather_summary}
+      {day_cloud_summary} {day_precipitation_summary}
+
+locations:
+  wittstock:
+    name: Wittstock
+    latitude: 53.16
+    longitude: 12.48
+    timezone: Europe/Berlin
+    language: de
+    temperature_unit: c
