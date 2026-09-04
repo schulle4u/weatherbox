@@ -1,20 +1,21 @@
-# Docker-Betrieb
+# Docker deployment
 
-[Projektübersicht und Schnellstart](../README.md) · [Dokumentationsübersicht](README.md)
+[Project overview and quick start](../README.md) · [Documentation index](README.md)
 
-Docker ist eine zusätzliche Deploy-Option zum [systemd-Timer](installation.md#linux-dienst-mit-systemd). Benötigt werden
-Docker mit Linux-Containern und das
-[Compose-Plugin](https://docs.docker.com/compose/). Alle folgenden Befehle werden
-im Repository-Verzeichnis ausgeführt. Das Image enthält Python 3.14, FFmpeg,
-FFprobe, eSpeak NG, CA-Zertifikate und Zeitzonendaten; gTTS wird mit Weatherbox
-installiert. Auf dem Host ist keine Python- oder Audio-Tool-Installation nötig.
+Docker is an alternative deployment option to the
+[systemd timer](installation.md#linux-service-with-systemd).
+It requires Docker with Linux containers and the
+[Compose plugin](https://docs.docker.com/compose/). Run all commands below from
+the repository directory. The image includes Python 3.14, FFmpeg, FFprobe,
+eSpeak NG, CA certificates, and time zone data; gTTS is installed with Weatherbox.
+No Python or audio tools need to be installed on the host.
 
-## Start mit Compose
+## Starting with Compose
 
 ```bash
 mkdir docker-config
 cp deploy/docker/config.example.yaml docker-config/config.yaml
-# Jetzt docker-config/config.yaml anpassen, insbesondere Standorte und Templates.
+# Customize docker-config/config.yaml, especially locations and templates.
 docker compose config
 docker compose build --pull
 docker compose run --rm weatherbox status
@@ -22,17 +23,16 @@ docker compose up -d
 docker compose logs -f weatherbox
 ```
 
-In PowerShell kann für das Kopieren `Copy-Item` statt `cp` verwendet werden.
-Die [Docker-Beispielkonfiguration](../deploy/docker/config.example.yaml) verwendet Open-Meteo sowie gTTS mit lokalem
-eSpeak-Fallback und benötigt keine zusätzlichen Modelle oder Jingles. Ein
-anfänglich als `degraded` gemeldeter Status ist bei leerem Wettercache normal.
-Wetterdaten und gTTS benötigen ausgehenden Internetzugang. Für lokale
-Spracherzeugung `tts.provider: espeak-ng` und `tts.fallback_provider: null` setzen.
+In PowerShell, you can use `Copy-Item` instead of `cp`.
+The [Docker example configuration](../deploy/docker/config.example.yaml) uses
+Open-Meteo and gTTS with a local eSpeak fallback, requiring no extra models or
+jingles. An initial `degraded` status is normal with an empty weather cache.
+Weather data and gTTS require outbound internet access. For local speech
+generation, set `tts.provider: espeak-ng` and `tts.fallback_provider: null`.
 
-Der Container startet `serve`: sofort ein Scheduler-Durchlauf, danach jeweils
-60 Sekunden Pause. Vorbereitungshorizont, Wiederholungsversuche und Bereinigung
-werden über YAML gesteuert. Das Polling-Intervall lässt sich in einer
-`compose.override.yaml` anpassen:
+The container starts `serve`: one scheduler pass immediately, then a 60-second
+pause between passes. The preparation window, retries, and cleanup are controlled
+through YAML. Change the polling interval in `compose.override.yaml`:
 
 ```yaml
 services:
@@ -40,45 +40,43 @@ services:
     command: ["serve", "--interval-seconds", "30"]
 ```
 
-Nur eine Scheduler-Instanz darf dieselben Laufzeitdaten verwenden; einen
-bisherigen systemd-Timer dafür vor dem Umstieg stoppen und deaktivieren.
-`docker compose stop` wartet bis zu zwei Minuten auf den laufenden Durchlauf.
-Bei vielen Standorten oder langsamer Synthese `stop_grace_period` entsprechend
-erhöhen, damit Docker den Prozess nicht vorzeitig beendet. Compose startet den
-Dienst nach einem Fehler oder Docker-Neustart erneut, sofern er nicht manuell
-gestoppt wurde. Einzelheiten stehen in der
-[Compose-Service-Referenz](https://docs.docker.com/reference/compose-file/services/).
+Only one scheduler instance may use the same runtime data; stop and disable
+any existing systemd timer before switching.
+`docker compose stop` waits up to two minutes for the current pass to finish.
+With many locations or slow synthesis, increase `stop_grace_period` so Docker
+does not terminate the process prematurely. Compose restarts the service after
+a failure or Docker restart unless it was stopped manually. See the
+[Compose service reference](https://docs.docker.com/reference/compose-file/services/)
+for details.
 
-## Konfiguration, Dateien und persistente Daten
+## Configuration, files, and persistent data
 
-`docker-config/` wird schreibgeschützt nach `/etc/weatherbox` eingebunden und ist
-von Git und vom Image-Build ausgeschlossen. Die Datei
-`docker-config/config.yaml` muss vor dem Start existieren. Relative Pfade in
-dieser Datei beziehen sich auf `/etc/weatherbox`, beispielsweise:
+`docker-config/` is mounted read-only at `/etc/weatherbox` and excluded from Git
+and the image build. `docker-config/config.yaml` must exist before startup.
+Relative paths in this file refer to `/etc/weatherbox`, for example:
 
-| Datei auf dem Host | Pfad in der YAML-Konfiguration |
+| File on the host | Path in the YAML configuration |
 | --- | --- |
 | `docker-config/assets/intro.wav` | `assets/intro.wav` |
 | `docker-config/models/stimme.onnx` | `models/stimme.onnx` |
 | `docker-config/lang/de.yaml` | `localization.directory: lang` |
 
-Für eigene Sprachdateien gilt weiterhin das vollständige Sprachschema. Nach
-Konfigurationsänderungen `docker compose restart weatherbox` ausführen.
-Eine bestehende native Konfiguration kann übernommen werden; dabei insbesondere
-die vier Ausgabepfade auf die absoluten Containerpfade aus dem Docker-Beispiel
-umstellen und benötigte Audio- und Modelldateien unter `docker-config/` ablegen.
+Custom language files must still follow the complete language schema.
+After configuration changes, run `docker compose restart weatherbox`.
+You can reuse an existing native configuration: update the four output paths
+to the absolute container paths from the Docker example and place required
+audio and model files under `docker-config/`.
 
-Cache, Scheduler-Status, versionierte Audiodateien und öffentliche Dateien liegen
-unter `/var/lib/weatherbox` im benannten Volume `weatherbox-data` (Compose ergänzt
-den Projektnamen). Sie bleiben bei Container-Neuerstellung und
-`docker compose down` erhalten. **`docker compose down -v` löscht dieses Volume
-einschließlich aller Laufzeitdaten.** Konfiguration und Volume gemeinsam sichern.
-Das Image läuft als unprivilegierter Benutzer mit UID/GID `10001:10001`;
-Docker übernimmt die Schreibrechte beim ersten Anlegen des leeren Volumes.
+The cache, scheduler state, versioned audio, and public files are stored under
+`/var/lib/weatherbox` in the named volume `weatherbox-data` (Compose adds the
+project name). They survive container recreation and `docker compose down`.
+**`docker compose down -v` deletes this volume, including all runtime data.**
+Back up the configuration and volume together.
+The image runs as an unprivileged user with UID/GID `10001:10001`; Docker sets
+up write permissions when it first creates the empty volume.
 
-Für direkten Host-Zugriff, etwa mit dem vorhandenen Caddy oder nginx, kann der
-Volume-Eintrag für `/var/lib/weatherbox` in `compose.yaml` durch einen Bind-Mount
-ersetzt werden:
+For direct host access, for example from an existing Caddy or nginx instance,
+replace the `/var/lib/weatherbox` volume entry in `compose.yaml` with a bind mount:
 
 ```yaml
       - type: bind
@@ -88,58 +86,56 @@ ersetzt werden:
           create_host_path: false
 ```
 
-Das Verzeichnis vorher anlegen und unter Linux für UID/GID `10001:10001`
-schreibbar machen, zum Beispiel mit
+Create the directory first and, on Linux, make it writable by UID/GID
+`10001:10001`, for example with
 `sudo install -d -o 10001 -g 10001 -m 0755 var/docker`.
-Konfiguration und Assets müssen für diesen Benutzer lesbar sein. Der Wechsel
-des Mounts übernimmt vorhandene Daten nicht automatisch; bei einer Migration
-den Scheduler stoppen und Cache, Status und Audioverzeichnisse mitnehmen.
+Configuration and assets must be readable by this user. Changing the mount does
+not automatically transfer existing data; when migrating, stop the scheduler
+and transfer the cache, state, and audio directories.
 
-Weatherbox öffnet keinen Netzwerkport. Für HTTP-Auslieferung einen separaten
-Webserver ausschließlich auf das Unterverzeichnis `public` ausrichten, bei
-obigem Bind-Mount also `var/docker/public` auf dem Host. Ein Webserver-Container
-kann das Datenvolume schreibgeschützt einbinden und als Dokumentenwurzel
-`/var/lib/weatherbox/public` verwenden. Cache und Status gehören nicht in die
-öffentliche Dokumentenwurzel. Die Header aus [deploy/Caddyfile.example](../deploy/Caddyfile.example) gelten
-auch für diese Variante.
+Weatherbox does not open a network port. For HTTP delivery, point a separate
+web server exclusively at the `public` subdirectory — `var/docker/public` on
+the host with the bind mount above. A web server container can mount the data
+volume read-only and use `/var/lib/weatherbox/public` as its document root.
+The cache and state must stay outside the public document root. The headers in
+[deploy/Caddyfile.example](../deploy/Caddyfile.example) also apply to this setup.
 
-## Status, manuelle Befehle und Updates
+## Status, manual commands, and updates
 
 ```bash
 docker compose exec weatherbox wb-announcer --config /etc/weatherbox/config.yaml status
 
-# Für schreibende manuelle Befehle den Scheduler zuerst stoppen.
+# Stop the scheduler before running manual commands that write data.
 docker compose stop weatherbox
 docker compose run --rm weatherbox weather-update
 docker compose run --rm weatherbox generate-all
 docker compose up -d
 
-# Nach Aktualisierung des Quellcodes das Image neu bauen und den Dienst ersetzen.
+# After updating the source code, rebuild the image and replace the service.
 docker compose build --pull
 docker compose up -d
 
-# Container entfernen; Laufzeitdaten bleiben erhalten.
+# Remove containers while keeping runtime data.
 docker compose down
 ```
 
-Weitere CLI-Befehle funktionieren analog, etwa
+Other CLI commands work the same way, for example
 `docker compose run --rm weatherbox cleanup-generated --older-than-days 30`.
-Compose begrenzt Containerlogs auf drei Dateien mit jeweils 10 MB.
+Compose limits container logs to three files of 10 MB each.
 
-## Optional: Piper im Image
+## Optional: Piper in the image
 
-Die zusätzliche [Piper-Installation](https://github.com/OHF-Voice/piper1-gpl)
-wird beim Build aktiviert. Dazu im Repository eine `.env` mit folgendem Inhalt
-anlegen beziehungsweise die vorhandene Datei ergänzen:
+Enable the optional [Piper installation](https://github.com/OHF-Voice/piper1-gpl)
+at build time by creating or updating a `.env` file in the repository with:
 
 ```dotenv
 INSTALL_PIPER=true
 ```
 
-Anschließend `docker compose build --pull` ausführen. Das Dockerfile installiert
-dafür `piper-tts==1.7.0`; passende Pakete müssen für die verwendete
-Linux-Architektur verfügbar sein. Das gewünschte `.onnx`-Modell samt zugehöriger
-`.onnx.json`-Datei unter `docker-config/models/` ablegen und YAML anpassen:
+Then run `docker compose build --pull`. The Dockerfile installs
+`piper-tts==1.7.0`; compatible packages must be available for your Linux
+architecture. Place the desired `.onnx` model and its accompanying `.onnx.json`
+file under `docker-config/models/` and update the YAML configuration:
 
 ```yaml
 tts:
@@ -150,6 +146,6 @@ tts:
     model: models/de_DE-thorsten-medium.onnx
 ```
 
-Alternativ kann Piper als Fallback für gTTS dienen. Modelle werden nicht
-automatisch heruntergeladen. Danach `docker compose up -d --force-recreate`
-ausführen, damit sowohl das neue Image als auch die Konfiguration aktiv werden.
+Piper can also serve as a fallback for gTTS. Models are not downloaded
+automatically. Afterwards, run `docker compose up -d --force-recreate` to
+activate both the new image and the configuration.

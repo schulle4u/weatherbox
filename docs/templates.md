@@ -1,85 +1,85 @@
-# Templates und Sprachen
+# Templates and languages
 
-[Projektübersicht und Schnellstart](../README.md) · [Dokumentationsübersicht](README.md)
+[Project overview and quick start](../README.md) · [Documentation index](README.md)
 
-## Ansagetexte festlegen
+## Setting announcement text
 
-Globale Texte stehen unter `announcements.half_hour.template` und
-`announcements.full_hour.template`. Ein Standort kann sie unter
-`locations.<id>.announcements` überschreiben. Mit `enabled: false` lässt sich
-eine der beiden Ansagearten deaktivieren. Die Beispiele sind Ausschnitte für
-deine bestehende [Konfiguration](configuration.md).
+Global text is configured under `announcements.half_hour.template` and
+`announcements.full_hour.template`. A location can override it under
+`locations.<id>.announcements`. Set `enabled: false` to disable either
+announcement type. The examples below are snippets for your existing
+[configuration](configuration.md).
 
-## Template-Variablen
+## Template variables
 
-Templates verwenden Platzhalter in geschweiften Klammern, zum Beispiel
+Templates use placeholders in braces, for example:
 `Es ist {time} in {location}. Die Temperatur beträgt {temperature} Grad.`
-Derzeit sind folgende Variablen implementiert:
+The following variables are currently supported:
 
-| Variable | Inhalt und Ausgabeformat |
+| Variable | Content and output format |
 | --- | --- |
-| `{greeting}` | Begrüßung nach lokaler Standortzeit: morgens bis 11:59 Uhr, tagsüber ab 12:00 Uhr und abends ab 18:00 Uhr; die Texte werden in der Sprachdatei unter `greetings` konfiguriert |
-| `{time}` | Geplante Wiedergabezeit in Wörtern der Standortsprache, zum Beispiel `vierzehn Uhr dreißig` |
-| `{hour}` | Stunde der geplanten Wiedergabe in Wörtern der Standortsprache, zum Beispiel `vierzehn` |
-| `{minute}` | Minute der geplanten Wiedergabe als Zahl, zum Beispiel `30` |
-| `{date}` | Lokalisiertes Datum der geplanten Wiedergabe, zum Beispiel `18. August 2026` |
-| `{location}` | Konfigurierter Anzeigename des Standorts |
-| `{latitude}` | Breitengrad des Standorts |
-| `{longitude}` | Längengrad des Standorts |
-| `{temperature}` | Vorhergesagte Temperatur in der für den Standort konfigurierten Einheit |
-| `{apparent_temperature}` | Vorhergesagte gefühlte Temperatur in der für den Standort konfigurierten Einheit |
-| `{dew_point}` | Vorhergesagter Taupunkt in der für den Standort konfigurierten Einheit |
-| `{humidity}` | Relative Luftfeuchtigkeit in Prozent |
-| `{pressure}` | Luftdruck an der Oberfläche in Hektopascal |
-| `{weather_description}` | Lokalisierte Beschreibung des providerunabhängigen WMO-Wettercodes, zum Beispiel `teilweise bewölkt` |
-| `{weather_code}` | Numerischer, intern vereinheitlichter WMO-Wettercode |
-| `{cloud_cover}` | Bewölkungsgrad in Prozent |
-| `{wind_speed}` | Windgeschwindigkeit in Kilometern pro Stunde |
-| `{wind_direction}` | Windrichtung als lokalisierte Himmelsrichtung, zum Beispiel `Südwesten` |
-| `{wind_direction_degrees}` | Windrichtung in Grad |
-| `{wind_gusts}` | Geschwindigkeit der Windböen in Kilometern pro Stunde |
-| `{precipitation}` | Vorhergesagte Niederschlagsmenge in Millimetern |
-| `{precipitation_probability}` | Niederschlagswahrscheinlichkeit in Prozent |
-| `{day_temperature_min}` | Tiefste Temperatur des lokalen Kalendertags in der konfigurierten Temperatureinheit |
-| `{day_temperature_max}` | Höchste Temperatur des lokalen Kalendertags in der konfigurierten Temperatureinheit |
-| `{day_precipitation_sum}` | Erwartete Niederschlagssumme des lokalen Kalendertags in Millimetern |
-| `{day_precipitation_probability_max}` | Höchste stündliche Niederschlagswahrscheinlichkeit des lokalen Kalendertags in Prozent |
-| `{day_precipitation_hours}` | Anzahl der Stunden mit erwartetem Niederschlag am lokalen Kalendertag |
-| `{day_cloud_cover_mean}` | Mittlerer Bewölkungsgrad über den gesamten lokalen Kalendertag in Prozent |
-| `{day_weather_description}` | Lokalisierte Beschreibung der markantesten Wetterlage des lokalen Kalendertags |
-| `{day_wind_speed_max}` | Höchste Windgeschwindigkeit des lokalen Kalendertags in Kilometern pro Stunde |
-| `{day_wind_gusts_max}` | Höchste Böengeschwindigkeit des lokalen Kalendertags in Kilometern pro Stunde |
-| `{day_weather_summary}` | Lokalisierte Zusammenfassung aus Tageswetterlage sowie Tagesminimum und -maximum |
-| `{day_cloud_summary}` | Lokalisierte, aus dem mittleren Bewölkungsgrad abgeleitete Tageszusammenfassung |
-| `{day_precipitation_summary}` | Lokalisierte Zusammenfassung aus maximaler Niederschlagswahrscheinlichkeit und erwarteter Niederschlagssumme |
-| `{sunrise}` | Sonnenaufgang in den Zeitwörtern der Standortsprache, zum Beispiel `fünf Uhr achtundvierzig` |
-| `{sunset}` | Sonnenuntergang in den Zeitwörtern der Standortsprache |
-| `{forecast_time}` | Zeitpunkt der verwendeten Wetterdaten in den Zeitwörtern der Standortsprache |
-| `{warning_count}` | Anzahl der zum Wiedergabezeitpunkt aktiven DWD-Warnungen |
-| `{warning_level}` | DWD-Warnstufe der höchstpriorisierten aktiven Warnung |
-| `{warning_event}` | Ereignisbezeichnung der höchstpriorisierten Warnung |
-| `{warning_headline}` | Überschrift der höchstpriorisierten Warnung |
-| `{warning_description}` | Ausführliche Beschreibung der höchstpriorisierten Warnung |
-| `{warning_instruction}` | Handlungshinweis der höchstpriorisierten Warnung |
-| `{warning_start}` | Beginn der höchstpriorisierten Warnung in lokalisierten Zeitwörtern |
-| `{warning_end}` | Ende der höchstpriorisierten Warnung in lokalisierten Zeitwörtern |
-| `{warning_text}` | Überschriften aller aktiven Warnungen oder lokalisierter Hinweis, dass keine Warnung aktiv ist |
-| `{temperature_source}` | Provider des verwendeten Temperaturwerts, zum Beispiel `dwd` |
-| `{weather_source}` | Provider des verwendeten Wettercodes und der Wetterbeschreibung |
-| `{warning_source}` | Provider der höchstpriorisierten aktiven Warnung |
+| `{greeting}` | Greeting based on local time at the location: morning until 11:59, daytime from 12:00, and evening from 18:00; text is configured under `greetings` in the language file |
+| `{time}` | Scheduled playback time in words in the location language, for example `vierzehn Uhr dreißig` |
+| `{hour}` | Hour of scheduled playback in words in the location language, for example `vierzehn` |
+| `{minute}` | Minute of scheduled playback as a number, for example `30` |
+| `{date}` | Localized date of scheduled playback, for example `18. August 2026` |
+| `{location}` | Configured display name of the location |
+| `{latitude}` | Latitude of the location |
+| `{longitude}` | Longitude of the location |
+| `{temperature}` | Forecast temperature in the location's configured unit |
+| `{apparent_temperature}` | Forecast feels-like temperature in the location's configured unit |
+| `{dew_point}` | Forecast dew point in the location's configured unit |
+| `{humidity}` | Relative humidity as a percentage |
+| `{pressure}` | Surface air pressure in hectopascals |
+| `{weather_description}` | Localized description of the provider-independent WMO weather code, for example `teilweise bewölkt` |
+| `{weather_code}` | Numeric WMO weather code normalized internally |
+| `{cloud_cover}` | Cloud cover as a percentage |
+| `{wind_speed}` | Wind speed in kilometers per hour |
+| `{wind_direction}` | Wind direction as a localized compass direction, for example `Südwesten` |
+| `{wind_direction_degrees}` | Wind direction in degrees |
+| `{wind_gusts}` | Wind gust speed in kilometers per hour |
+| `{precipitation}` | Forecast precipitation amount in millimeters |
+| `{precipitation_probability}` | Probability of precipitation as a percentage |
+| `{day_temperature_min}` | Lowest temperature of the local calendar day in the configured temperature unit |
+| `{day_temperature_max}` | Highest temperature of the local calendar day in the configured temperature unit |
+| `{day_precipitation_sum}` | Expected total precipitation for the local calendar day in millimeters |
+| `{day_precipitation_probability_max}` | Highest hourly precipitation probability for the local calendar day as a percentage |
+| `{day_precipitation_hours}` | Number of hours with expected precipitation during the local calendar day |
+| `{day_cloud_cover_mean}` | Mean cloud cover over the entire local calendar day as a percentage |
+| `{day_weather_description}` | Localized description of the most significant weather conditions of the local calendar day |
+| `{day_wind_speed_max}` | Highest wind speed of the local calendar day in kilometers per hour |
+| `{day_wind_gusts_max}` | Highest gust speed of the local calendar day in kilometers per hour |
+| `{day_weather_summary}` | Localized summary of daily weather conditions and minimum and maximum temperatures |
+| `{day_cloud_summary}` | Localized daily summary derived from mean cloud cover |
+| `{day_precipitation_summary}` | Localized summary of maximum precipitation probability and expected total precipitation |
+| `{sunrise}` | Sunrise time in words in the location language, for example `fünf Uhr achtundvierzig` |
+| `{sunset}` | Sunset time in words in the location language |
+| `{forecast_time}` | Timestamp of the weather data used, in words in the location language |
+| `{warning_count}` | Number of DWD warnings active at playback time |
+| `{warning_level}` | DWD warning level of the highest-priority active warning |
+| `{warning_event}` | Event name of the highest-priority warning |
+| `{warning_headline}` | Headline of the highest-priority warning |
+| `{warning_description}` | Detailed description of the highest-priority warning |
+| `{warning_instruction}` | Recommended action from the highest-priority warning |
+| `{warning_start}` | Start time of the highest-priority warning in localized time words |
+| `{warning_end}` | End time of the highest-priority warning in localized time words |
+| `{warning_text}` | Headlines of all active warnings, or a localized message that no warning is active |
+| `{temperature_source}` | Provider of the temperature value used, for example `dwd` |
+| `{weather_source}` | Provider of the weather code and description used |
+| `{warning_source}` | Provider of the highest-priority active warning |
 
-Numerische Werte werden auf eine Nachkommastelle gerundet, überflüssige
-Nachkommastellen werden entfernt und das Dezimaltrennzeichen wird lokalisiert.
-Eine unbekannte Variable, eine Formatangabe wie `{temperature:.1f}` oder ein im
-konkreten Forecast nicht verfügbarer verwendeter Wert bricht die Generierung
-kontrolliert ab. Das bisher veröffentlichte Audio-Asset bleibt dabei erhalten.
-`{warning_count}` und `{warning_text}` sind immer belegt. Die übrigen Warnfelder
-sind nur verwendbar, wenn zum Wiedergabezeitpunkt mindestens eine entsprechende
-Warnung aktiv ist. Bei mehreren Warnungen liefert das Modul für die einzelnen
-Warnfelder die höchste Warnstufe; `{warning_text}` verbindet alle Überschriften.
-Die `day_`-Variablen beziehen sich auf das lokale Kalenderdatum der geplanten
-Wiedergabe. Die Tageszusammenfassungen sind vollständige Sätze und können direkt
-aneinandergereiht werden, zum Beispiel:
+Numeric values are rounded to one decimal place, unnecessary decimal places
+are removed, and the decimal separator is localized.
+An unknown variable, a format specifier such as `{temperature:.1f}`, or a
+referenced value that is unavailable in the current forecast causes generation
+to stop with a controlled error. The previously published audio asset is preserved.
+`{warning_count}` and `{warning_text}` are always populated. Other warning
+fields can only be used when a corresponding warning is active at playback time.
+With multiple warnings, individual fields refer to the warning with the highest
+severity level; `{warning_text}` combines all headlines.
+The `day_` variables refer to the local calendar date of scheduled playback.
+Daily summaries are complete sentences and can be placed directly after one
+another, for example:
 
 ```yaml
 template: >
@@ -87,33 +87,33 @@ template: >
   {day_cloud_summary} {day_precipitation_summary}
 ```
 
-## Sprachen und Aussprachewörterbücher
+## Languages and pronunciation dictionaries
 
-Weatherbox liefert die Sprachen Deutsch (`de`) und Englisch (`en`) mit. Die
-zugehörigen YAML-Wörterbücher liegen unter [src/weatherbox/lang/](../src/weatherbox/lang/). Sie enthalten:
+Weatherbox includes German (`de`) and English (`en`). Their YAML dictionaries
+are in [src/weatherbox/lang/](../src/weatherbox/lang/). They contain:
 
-- Zahlen von null bis neunzehn und die Zehner bis fünfzig
-- Regeln und Ausnahmen für zusammengesetzte Zahlen
-- kontextabhängige Formen wie `ein Uhr` gegenüber `eins`
-- Zeit- und Datumsmuster sowie Monatsnamen
-- Dezimaltrennzeichen
-- Beschreibungen der providerunabhängigen WMO-Wettercodes
-- Satzmuster für Wetter-, Bewölkungs- und Niederschlagszusammenfassungen
-- 16 Windrichtungen
+- Numbers from zero to nineteen and multiples of ten up to fifty.
+- Rules and exceptions for compound numbers.
+- Context-dependent forms such as `ein Uhr` versus `eins`.
+- Time and date patterns and month names.
+- Decimal separators.
+- Descriptions of provider-independent WMO weather codes.
+- Sentence patterns for weather, cloud cover, and precipitation summaries.
+- Sixteen compass directions.
 
-Die eingebauten Zusammenfassungen ordnen die mittlere Tagesbewölkung festen
-Bewölkungsstufen und die maximale Niederschlagswahrscheinlichkeit festen
-Wahrscheinlichkeitsstufen zu. Sämtliche ausgegebenen Sätze stehen unter
-`summaries` in der jeweiligen Sprachdatei und können dort ersetzt werden. Bei
-älteren eigenen Sprachdateien darf der Abschnitt fehlen; die übrige Sprache
-bleibt dann nutzbar, während die drei Zusammenfassungsvariablen unbelegt sind.
+The built-in summaries map mean daily cloud cover to fixed cloud-cover bands
+and maximum precipitation probability to fixed probability bands. All output
+sentences are stored under `summaries` in the corresponding language file and
+can be replaced there. Older custom language files may omit this section;
+the rest of the language remains usable, but the three summary variables will
+be unset.
 
-Die Sprache kann für jeden Standort separat gewählt werden:
+Choose the language separately for each location:
 
 ```yaml
 localization:
   default_language: de
-  # Optional: eigene vollständige YAML-Sprachdateien aus diesem Verzeichnis laden
+  # Optional: load complete custom YAML language files from this directory.
   directory: lang
 
 locations:
@@ -139,12 +139,11 @@ locations:
           Conditions are {weather_description}.
 ```
 
-Eigene Sprachdateien müssen das vollständige Schema einer eingebauten Datei
-besitzen. Eine Datei im konfigurierten `localization.directory` überschreibt eine
-eingebaute Sprache mit demselben `code`; neue Codes ergänzen den Katalog. Über
-`numbers.overrides` können unregelmäßige Zahlen vollständig überschrieben werden.
-`time.hour_mode` unterstützt eine 12- oder 24-Stunden-Ausgabe. Ungültige oder
-unvollständige Sprachdateien werden bereits beim Programmstart abgelehnt.
+Custom language files must follow the complete schema of a built-in file.
+A file in the configured `localization.directory` overrides a built-in language
+with the same `code`; new codes extend the catalog. Use `numbers.overrides` to
+fully override irregular numbers. `time.hour_mode` supports 12-hour or 24-hour
+output. Invalid or incomplete language files are rejected at startup.
 
-Templates werden bewusst nicht automatisch übersetzt. Für einen anderssprachigen
-Standort muss daher ein passendes Standort-Template konfiguriert werden.
+Templates are not translated automatically. Each location using a different
+language therefore needs suitable templates for its enabled announcement types.

@@ -1,31 +1,31 @@
-# Installation und Linux-Dienst
+# Installation and Linux service
 
-[Projektübersicht und Schnellstart](../README.md) · [Dokumentationsübersicht](README.md)
+[Project overview and quick start](../README.md) · [Documentation index](README.md)
 
-## Voraussetzungen für die native Installation
+## Native installation requirements
 
-Benötigt werden Python ab 3.11 sowie `ffmpeg` und `ffprobe` im Suchpfad.
-gTTS wird mit Weatherbox installiert. Die Schnellstart-Konfiguration nutzt
-Open-Meteo und gTTS und benötigt ausgehenden Internetzugang.
-Piper oder eSpeak NG werden nur benötigt, wenn sie als primäre oder
-ersatzweise Sprachausgabe konfiguriert sind.
+Python 3.11 or later, `ffmpeg`, and `ffprobe` must be available on your PATH.
+gTTS is installed with Weatherbox. The quick-start configuration uses
+Open-Meteo and gTTS and requires outbound internet access.
+Piper or eSpeak NG is only required if configured as the primary or fallback
+speech provider.
 
-Beispiel für Debian/Ubuntu beziehungsweise Raspberry Pi OS mit Python ab 3.11:
+Example for Debian/Ubuntu or Raspberry Pi OS with Python 3.11 or later:
 
 ```bash
 sudo apt update
 sudo apt install python3 python3-venv ffmpeg
 ```
 
-Für den optionalen lokalen eSpeak-Provider zusätzlich `espeak-ng` installieren.
-Unter macOS Python und FFmpeg über die bevorzugte Paketverwaltung installieren.
-Unter Windows müssen die Verzeichnisse mit `ffmpeg.exe` und `ffprobe.exe` im
-`PATH` stehen; alternativ lassen sich deren Pfade in der
-[Konfiguration](configuration.md) unter `audio.ffmpeg` und `audio.ffprobe` setzen.
+For the optional local eSpeak provider, also install `espeak-ng`.
+On macOS, install Python and FFmpeg using your preferred package manager.
+On Windows, the directories containing `ffmpeg.exe` and `ffprobe.exe` must be
+on your `PATH`. Alternatively, set their paths using `audio.ffmpeg` and
+`audio.ffprobe` in the [configuration](configuration.md).
 
-## Linux und macOS
+## Linux and macOS
 
-Im heruntergeladenen oder geklonten Projektverzeichnis:
+From the downloaded or cloned project directory:
 
 ```bash
 python3 -m venv .venv
@@ -34,19 +34,19 @@ python -m pip install .
 cp docs/config.quickstart.yaml config.yaml
 ```
 
-`config.yaml` öffnen und unter `locations` Name, Koordinaten und Zeitzone
-anpassen. Dann die ersten Ansagen erzeugen:
+Open `config.yaml` and update the name, coordinates, and time zone under
+`locations`. Then generate your first announcements:
 
 ```bash
 wb-announcer --config config.yaml generate-all
 ```
 
-Die Dateien liegen unter `var/public/<standort-id>/`. Für Dauerbetrieb
-`wb-announcer --config config.yaml serve` starten; `Strg+C` beendet den Prozess.
+Files are saved under `var/public/<location-id>/`. For continuous operation,
+run `wb-announcer --config config.yaml serve`; stop the process with `Ctrl+C`.
 
-## Windows mit PowerShell
+## Windows with PowerShell
 
-Im Projektverzeichnis ist keine Aktivierung der virtuellen Umgebung nötig:
+From the project directory, without activating the virtual environment:
 
 ```powershell
 py -3 -m venv .venv
@@ -54,28 +54,27 @@ py -3 -m venv .venv
 Copy-Item docs/config.quickstart.yaml config.yaml
 ```
 
-Auch hier zuerst den Standort in `config.yaml` anpassen. Anschließend:
+Update the location in `config.yaml` first, then run:
 
 ```powershell
 .\.venv\Scripts\wb-announcer.exe --config config.yaml generate-all
 .\.venv\Scripts\wb-announcer.exe --config config.yaml serve
 ```
 
-Der zweite Befehl startet den Dauerbetrieb im Terminal. Für Docker unter
-Windows gelten die Schritte aus der [Docker-Anleitung](docker.md).
+The second command starts continuous operation in the terminal. For Docker
+on Windows, follow the [Docker guide](docker.md).
 
-## Linux-Dienst mit systemd
+## Linux service with systemd
 
-Die mitgelieferten Units erwarten das Projekt unter `/opt/weatherbox`, eine
-virtuelle Python-Umgebung unter `/opt/weatherbox/.venv`, die Konfiguration unter
-`/etc/weatherbox/config.yaml` und schreibbare Daten unter `/var/lib/weatherbox`.
-Die folgenden Schritte beschreiben eine neue Installation. Bei bestehenden
-Installationen Benutzer und Verzeichnisse wiederverwenden und die vorhandene
-Konfiguration beibehalten.
+The included units expect the project under `/opt/weatherbox`, a Python virtual
+environment under `/opt/weatherbox/.venv`, configuration at
+`/etc/weatherbox/config.yaml`, and writable data under `/var/lib/weatherbox`.
+The following steps describe a new installation. For existing installations,
+reuse the user and directories and keep the existing configuration.
 
-### 1. Programm und Dienstbenutzer einrichten
+### 1. Set up the application and service user
 
-Nach Installation der oben genannten Systemabhängigkeiten und von Git:
+After installing the system dependencies listed above and Git:
 
 ```bash
 sudo git clone https://github.com/schulle4u/weatherbox.git /opt/weatherbox
@@ -88,11 +87,11 @@ sudo install -d -o weatherbox -g weatherbox -m 0755 /var/lib/weatherbox
 sudo install -m 0644 docs/config.quickstart.yaml /etc/weatherbox/config.yaml
 ```
 
-### 2. Konfiguration anpassen und ausprobieren
+### 2. Customize the configuration and try it out
 
-`/etc/weatherbox/config.yaml` mit Administratorrechten bearbeiten: den Standort
-anpassen und den gesamten `output`-Abschnitt durch Folgendes ersetzen. Relative
-Pfade würden sonst auf das schreibgeschützte Konfigurationsverzeichnis zeigen.
+Edit `/etc/weatherbox/config.yaml` with administrator privileges: update the
+location and replace the entire `output` section with the following. Relative
+paths would otherwise point into the read-only configuration directory.
 
 ```yaml
 output:
@@ -103,18 +102,18 @@ output:
   state_dir: /var/lib/weatherbox/state
 ```
 
-Dann als Dienstbenutzer einen Probelauf durchführen:
+Then run a test as the service user:
 
 ```bash
 sudo -u weatherbox /opt/weatherbox/.venv/bin/wb-announcer --config /etc/weatherbox/config.yaml generate-all
 ```
 
-Die Audiodateien liegen unter `/var/lib/weatherbox/public/<standort-id>/`.
-Eigene Modelle, Sprachdateien und Jingles müssen für den Benutzer `weatherbox`
-lesbar sein. Die Service-Unit sperrt den Zugriff auf Home-Verzeichnisse;
-verwende beispielsweise Unterverzeichnisse von `/etc/weatherbox` für diese Dateien.
+Audio files are saved under `/var/lib/weatherbox/public/<location-id>/`.
+Custom models, language files, and jingles must be readable by the `weatherbox`
+user. The service unit blocks access to home directories; use subdirectories
+of `/etc/weatherbox`, for example, for these files.
 
-### 3. Timer aktivieren
+### 3. Enable the timer
 
 ```bash
 sudo install -m 0644 deploy/systemd/weatherbox.service deploy/systemd/weatherbox.timer /etc/systemd/system/
@@ -124,26 +123,26 @@ systemctl list-timers weatherbox.timer
 sudo journalctl -u weatherbox.service -n 50
 ```
 
-Der Timer startet jede Minute einen kurzen `run`-Durchlauf. Weatherbox entscheidet
-anhand der Konfiguration, welche Ansagen fällig sind und erneut versucht werden.
-Betreibe keinen zusätzlichen `serve`-Prozess oder Docker-Scheduler mit denselben
-Daten. Für schreibende manuelle Befehle zunächst den Timer stoppen und einen
-laufenden Service-Durchlauf abwarten; anschließend den Timer wieder starten.
+The timer starts a short `run` pass every minute. Weatherbox uses its
+configuration to determine which announcements are due and which need retries.
+Do not run an additional `serve` process or Docker scheduler against the same
+data. Before running manual commands that write data, stop the timer and wait
+for any active service run to finish; restart the timer afterwards.
 
-## Dateien per HTTP bereitstellen
+## Serving files over HTTP
 
-Weatherbox enthält keinen öffentlichen Webserver. Caddy oder nginx können die
-Audiodateien an Abspielgeräte ausliefern. Als Dokumentenwurzel ausschließlich
-`public_dir` verwenden, beim Linux-Dienst also `/var/lib/weatherbox/public`.
-Cache und Scheduler-Status gehören nicht in dieses Verzeichnis.
+Weatherbox does not include a public web server. Caddy or nginx can deliver
+audio files to players. Use only `public_dir` as the document root —
+`/var/lib/weatherbox/public` for the Linux service.
+The cache and scheduler state do not belong in this directory.
 
-Das [Caddy-Beispiel](../deploy/Caddyfile.example) enthält die Dokumentenwurzel
-und Cache-Header für die unterstützten Audioformate. Ersetze darin
-`audio.example.org` durch deine Domain und übernimm die Einstellungen in deinen
-Caddy-Betrieb. Die Ansagen sind dann beispielsweise unter
-`https://audio.example.org/wittstock/full-hour.mp3` abrufbar.
-Für Docker beschreibt die [Docker-Anleitung](docker.md#konfiguration-dateien-und-persistente-daten)
-den Zugriff auf das Datenvolume.
+The [Caddy example](../deploy/Caddyfile.example) includes the document root
+and cache headers for the supported audio formats. Replace `audio.example.org`
+with your domain and incorporate the settings into your Caddy setup.
+Announcements will then be available at addresses such as
+`https://audio.example.org/wittstock/full-hour.mp3`.
+For Docker, the [Docker guide](docker.md#configuration-files-and-persistent-data)
+explains how to access the data volume.
 
-Die Dateien werden vor ihrem Wiedergabezeitpunkt ersetzt. Abspielgeräte müssen
-sie rechtzeitig herunterladen und die Wiedergabe selbst planen.
+Files are replaced before their scheduled playback time. Players must download
+them in time and manage playback scheduling themselves.

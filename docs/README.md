@@ -1,26 +1,26 @@
-# Dokumentation
+# Documentation
 
-Für einen ersten Start genügt die [Projekt-README](../README.md).
-Hier stehen die Details zum Anpassen und Betreiben von Weatherbox.
+Start with the [project README](../README.md) for a quick setup.
+These guides cover configuring and operating Weatherbox in more detail.
 
-| Thema | Inhalt |
+| Topic | Contents |
 | --- | --- |
-| [Installation und Linux-Dienst](installation.md) | Native Installation, Windows, systemd und HTTP-Auslieferung |
-| [Docker](docker.md) | Compose, persistente Daten, Updates, eigene Dateien und Piper |
-| [Konfiguration](configuration.md) | Aufbau der YAML-Datei, Standorte, Wetterquellen, Stimmen und Audio |
-| [Templates und Sprachen](templates.md) | Ansagetexte, alle Platzhalter und eigene Sprachdateien |
-| [Betrieb und Kommandozeile](operations.md) | Manuelle Erzeugung, Dauerbetrieb, Status und Aufbewahrung |
-| [Entwicklung](development.md) | Entwicklungsinstallation, Tests und Architektur |
+| [Installation and Linux service](installation.md) | Native installation, Windows, systemd, and HTTP delivery |
+| [Docker](docker.md) | Compose, persistent data, updates, custom files, and Piper |
+| [Configuration](configuration.md) | YAML structure, locations, weather sources, voices, and audio |
+| [Templates and languages](templates.md) | Announcement text, all placeholders, and custom language files |
+| [Operation and command line](operations.md) | Manual generation, continuous operation, status, and retention |
+| [Development](development.md) | Development setup, tests, and architecture |
 
-Konfigurationsvorlagen zum Kopieren:
+Configuration examples to copy:
 
-- [Schnellstart](config.quickstart.yaml): Open-Meteo und gTTS, ohne Modelle oder Jingles.
-- [Umfangreiches Beispiel](config.example.yaml): mehrere Wetterquellen, Piper-Fallback und Audioelemente; vor Verwendung anpassen.
-- [Docker-Beispiel](../deploy/docker/config.example.yaml): Containerpfade und lokaler eSpeak-Fallback.
+- [Quick start](config.quickstart.yaml): Open-Meteo and gTTS, without models or jingles.
+- [Full example](config.example.yaml): multiple weather sources, Piper fallback, and audio elements; customize before use.
+- [Docker example](../deploy/docker/config.example.yaml): container paths and a local eSpeak fallback.
 
-Die ausführliche `config.example.yaml` liegt jetzt in `docs/`.
-Ausführbare Deployment-Dateien bleiben unter `deploy/` beziehungsweise im
-Projektverzeichnis: [systemd-Service](../deploy/systemd/weatherbox.service),
-[systemd-Timer](../deploy/systemd/weatherbox.timer),
-[Caddy-Beispiel](../deploy/Caddyfile.example), [Compose](../compose.yaml) und
+The full `config.example.yaml` is located in `docs/`.
+Deployment files remain under `deploy/` or in the project directory:
+[systemd service](../deploy/systemd/weatherbox.service),
+[systemd timer](../deploy/systemd/weatherbox.timer),
+[Caddy example](../deploy/Caddyfile.example), [Compose](../compose.yaml), and
 [Dockerfile](../Dockerfile).

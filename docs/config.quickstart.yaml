@@ -1,5 +1,5 @@
-# Ins Projektverzeichnis als config.yaml kopieren.
-# Benötigt FFmpeg/FFprobe und Internetzugang; keine Modelle oder Jingles nötig.
+# Copy to the project directory as config.yaml.
+# Requires FFmpeg/FFprobe and internet access; no models or jingles needed.
 weather:
   providers:
     open-meteo: {}

@@ -1,14 +1,14 @@
-# Umfangreiches Konfigurationsbeispiel; vor Verwendung ins Projektverzeichnis
-# als config.yaml kopieren und Modelle sowie Audiodateien anpassen.
-# Für einen Start ohne zusätzliche Dateien: config.quickstart.yaml verwenden.
+# Full configuration example; copy to the project directory as config.yaml
+# and customize the model and audio file paths before use.
+# For a start without additional files, use config.quickstart.yaml.
 application:
   log_level: INFO
   json_logs: false
 
 localization:
   default_language: de
-  # Optionales Verzeichnis mit eigenen oder überschriebenen Sprachdateien.
-  # Relative Pfade werden relativ zu dieser Konfigurationsdatei aufgelöst.
+  # Optional directory containing custom or overridden language files.
+  # Relative paths are resolved against this configuration file.
   # directory: lang
 
 weather:
@@ -36,8 +36,8 @@ scheduler:
     max_attempts: 5
 
 tts:
-  # Cloud-Ausgabe per gTTS mit lokalem Piper-Fallback. Alternativ sind auch
-  # piper und espeak-ng als primärer oder sekundärer Provider möglich.
+  # Cloud speech generation with gTTS and a local Piper fallback.
+  # piper and espeak-ng can also be used as the primary or fallback provider.
   provider: gtts
   fallback_provider: piper
   gtts:
@@ -52,8 +52,8 @@ tts:
     executable: espeak-ng
     voice: de
     speed: 155
-  # Optionale Modelle und Stimmen je Sprache. Nicht angegebene Werte verwenden
-  # die obigen Standardeinstellungen.
+  # Optional models and voices per language. Missing values use
+  # the defaults above.
   # languages:
   #   en:
   #     piper:
@@ -75,7 +75,7 @@ audio:
   output:
     sample_rate: 48000
     channels: 2
-    # Jeder Schlüssel erzeugt ein eigenes versioniertes und öffentliches Asset.
+    # Each key produces its own versioned and public asset.
     formats:
       mp3:
         bitrate: 192k
@@ -88,8 +88,8 @@ audio:
       # m4a:
       #   bitrate: 192k
   jingles:
-    # Relative Pfade werden relativ zu dieser Konfigurationsdatei aufgelöst.
-    # Alle drei Dateien sind optional.
+    # Relative paths are resolved against this configuration file.
+    # All three files are optional.
     half_hour:
       intro: assets/jingle-short.wav
       outro: assets/outro.wav
@@ -98,21 +98,21 @@ audio:
       intro: assets/jingle-full.wav
       outro: assets/outro.wav
       music: assets/music.wav
-    # Absenkung des Musikbetts in dB (muss <= 0 sein).
+    # Music bed gain adjustment in dB (must be <= 0).
     music_attenuation: -10
-    # Dauer des Ausfadens nach dem Ende der Ansage in Sekunden.
+    # Fade-out duration after the speech ends, in seconds.
     music_fade_out: 2.5
 
 output:
   cache_dir: var/cache
   generated_dir: var/generated
-  # Alte generierte Assets vor jedem regulären Lauf löschen. Weglassen oder null
-  # verwenden, um die automatische Bereinigung zu deaktivieren.
+  # Delete old generated assets before each regular run. Omit or use null
+  # to disable automatic cleanup.
   generated_retention_days: 30
   public_dir: var/public
   state_dir: var/state
 
-# Ansagen können je Standort vollständig überschrieben werden.
+# Announcements can be fully overridden per location.
 announcements:
   half_hour:
     enabled: true
@@ -135,14 +135,14 @@ locations:
     latitude: 53.16
     longitude: 12.48
     timezone: Europe/Berlin
-    # Temperatureinheit für Ansagen: c (Celsius) oder f (Fahrenheit).
+    # Temperature unit for announcements: c (Celsius) or f (Fahrenheit).
     temperature_unit: c
     language: de
     enabled: true
     weather:
-      # Wittstock-Rote Mühle; keine CDC-Stations-ID verwenden.
+      # Wittstock-Rote Mühle; do not use a CDC station ID.
       dwd_station_id: F143
-    # Beispiel für standortspezifische Überschreibungen:
+    # Example of location-specific overrides:
     # announcements:
     #   half_hour:
     #     template: "Es ist {time} in {location}. Die Temperatur: {temperature} Grad."

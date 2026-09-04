@@ -1,12 +1,11 @@
-# Entwicklung und Architektur
+# Development and architecture
 
-[Projektübersicht und Schnellstart](../README.md) · [Dokumentationsübersicht](README.md)
+[Project overview and quick start](../README.md) · [Documentation index](README.md)
 
-## Entwicklungsinstallation
+## Development setup
 
-Python ab 3.11 sowie FFmpeg und FFprobe werden vorausgesetzt. Im
-Projektverzeichnis eine virtuelle Umgebung aktivieren und die zusätzlichen
-Testabhängigkeiten installieren:
+Python 3.11 or later, FFmpeg, and FFprobe are required. From the project
+directory, activate a virtual environment and install the extra test dependencies:
 
 ```bash
 python3 -m venv .venv
@@ -14,9 +13,10 @@ python3 -m venv .venv
 python -m pip install -e '.[dev]'
 ```
 
-Für PowerShell und Systemabhängigkeiten siehe [Installation](installation.md).
-Zum lokalen Ausprobieren [config.quickstart.yaml](config.quickstart.yaml)
-als `config.yaml` ins Projektverzeichnis kopieren.
+See [installation](installation.md) for PowerShell commands and system
+dependencies. To try Weatherbox locally, copy
+[config.quickstart.yaml](config.quickstart.yaml) to the project directory
+as `config.yaml`.
 
 ## Tests
 
@@ -24,25 +24,25 @@ als `config.yaml` ins Projektverzeichnis kopieren.
 pytest
 ```
 
-## Architekturregel
+## Architecture rule
 
-Weatherbox erzeugt keine Live-Audioausgabe. Alle konfigurierten Formate werden
-zuerst erzeugt und mit FFprobe validiert. Erst danach wird jede Datei atomar an
-ihre stabile öffentliche Stelle verschoben. Schlägt Synthese, Verarbeitung oder
-Validierung fehl, bleiben sämtliche bisherigen öffentlichen Assets unverändert.
+Weatherbox does not produce live audio output. All configured formats are
+generated and validated with FFprobe first. Only then is each file moved
+atomically to its stable public location. If synthesis, processing, or
+validation fails, all previously published assets remain unchanged.
 
-Die Wetter-Implementierung liegt im Paket `src/weatherbox/weather/`:
+The weather implementation is in the `src/weatherbox/weather/` package:
 
-- `open_meteo.py` und `dwd.py` enthalten die Provider und ihre API-Abbildungen
-- `merged.py` richtet mehrere Quellen zeitlich aus und führt sie feldweise zusammen
-- `factory.py` baut den einzelnen oder zusammengeführten Provider aus YAML
-- `base.py` enthält die gemeinsame Schnittstelle
-- `cache.py` speichert Forecasts und Warnungen providerunabhängig
+- `open_meteo.py` and `dwd.py` contain the providers and their API mappings.
+- `merged.py` aligns multiple sources in time and merges them field by field.
+- `factory.py` builds a single or merged provider from YAML.
+- `base.py` contains the shared interface.
+- `cache.py` stores forecasts and warnings independently of their provider.
 
-Die TTS-Implementierung liegt im Paket `src/weatherbox/tts/`:
+The TTS implementation is in the `src/weatherbox/tts/` package:
 
-- `piper.py`, `espeak_ng.py` und `gtts.py` enthalten jeweils genau einen Provider
-- `fallback.py` steuert die primäre und sekundäre Ausgabe
-- `factory.py` übersetzt die Konfiguration in eine Provider-Kette
-- `base.py` enthält nur die gemeinsame Schnittstelle und Validierungshelfer
-- `__init__.py` stellt die bisherige öffentliche Importoberfläche bereit
+- `piper.py`, `espeak_ng.py`, and `gtts.py` each contain one provider.
+- `fallback.py` manages primary and fallback speech generation.
+- `factory.py` translates configuration into a provider chain.
+- `base.py` contains only the shared interface and validation helpers.
+- `__init__.py` exposes the existing public import interface.
