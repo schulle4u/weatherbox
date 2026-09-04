@@ -1,0 +1,12 @@
+# Allow only package build inputs into the context; exclude local configs,
+# models, audio, runtime data, virtual environments and repository metadata.
+**
+!Dockerfile
+!pyproject.toml
+!README.md
+!LICENSE
+!src/
+!src/**
+**/__pycache__/
+**/*.py[cod]
+**/*.egg-info/

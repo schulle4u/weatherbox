@@ -1,0 +1,28 @@
+services:
+  weatherbox:
+    build:
+      context: .
+      args:
+        INSTALL_PIPER: ${INSTALL_PIPER:-false}
+    image: weatherbox:local
+    init: true
+    restart: unless-stopped
+    stop_grace_period: 2m
+    volumes:
+      - type: bind
+        source: ./docker-config
+        target: /etc/weatherbox
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: volume
+        source: weatherbox-data
+        target: /var/lib/weatherbox
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  weatherbox-data:

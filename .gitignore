@@ -181,6 +181,7 @@ cython_debug/
 .cursorindexingignore
 
 # Weatherbox runtime data and local configuration
+/docker-config/
 /var/
 /config.yaml
 /models/

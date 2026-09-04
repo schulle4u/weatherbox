@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import signal
 import sys
+import threading
 from datetime import datetime
 from pathlib import Path
 
@@ -22,6 +24,11 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     subparsers.add_parser("run", help="Generate all currently due announcements")
+    serve = subparsers.add_parser("serve", help="Continuously generate due announcements")
+    serve.add_argument(
+        "--interval-seconds", type=_positive_interval, default=60,
+        help="Seconds to wait after each scheduler pass (default: 60)",
+    )
     subparsers.add_parser("weather-update", help="Update weather cache for all locations")
     subparsers.add_parser("status", help="Output status as JSON")
     cleanup = subparsers.add_parser(
@@ -52,6 +59,40 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _positive_interval(value: str) -> int:
+    """Reject intervals that would create a busy scheduler loop."""
+    try:
+        interval = int(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("interval must be a positive integer") from exc
+    if interval <= 0:
+        raise argparse.ArgumentTypeError("interval must be a positive integer")
+    return interval
+
+
+def _serve(service: WeatherboxService, interval_seconds: int) -> int:
+    """Run serial scheduler passes until stopped, finishing any active pass."""
+    stop = threading.Event()
+    previous_handlers = {}
+
+    def request_stop(signum, frame):
+        stop.set()
+
+    try:
+        for signum in (signal.SIGTERM, signal.SIGINT):
+            previous_handlers[signum] = signal.signal(signum, request_stop)
+        while not stop.is_set():
+            results = service.run_due()
+            print(json.dumps(results, ensure_ascii=False), flush=True)
+            # Failed announcements are retried by the existing scheduler.
+            if stop.wait(interval_seconds):
+                break
+    finally:
+        for signum, handler in previous_handlers.items():
+            signal.signal(signum, handler)
+    return 0
+
+
 def _parse_time(value: str | None) -> datetime | None:
     """Parse an optional ISO-8601 timestamp and ensure it is timezone-aware."""
     if value is None:
@@ -70,7 +111,9 @@ def main(argv: list[str] | None = None) -> int:
         configure_logging(config.application.log_level, config.application.json_logs)
         service = WeatherboxService(config)
 
-        if args.command == "run":
+        if args.command == "serve":
+            return _serve(service, args.interval_seconds)
+        elif args.command == "run":
             results = service.run_due()
         elif args.command == "weather-update":
             results = service.update_weather()
