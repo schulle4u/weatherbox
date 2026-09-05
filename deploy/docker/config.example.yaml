@@ -35,6 +35,7 @@ tts:
   #   model: models/de_DE-thorsten-medium.onnx
 
 audio:
+  enabled: true
   loudness:
     enabled: true
   output:
@@ -54,6 +55,12 @@ output:
   generated_retention_days: 30
   public_dir: /var/lib/weatherbox/public
   state_dir: /var/lib/weatherbox/state
+
+# To generate static HTML without speech, set audio.enabled to false and enable:
+# text:
+#   enabled: true
+# A custom template can be mounted below /etc/weatherbox and selected with
+# template: /etc/weatherbox/template.html
 
 announcements:
   half_hour:

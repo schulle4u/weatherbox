@@ -38,6 +38,7 @@ Restart continuous operation (`serve` or Docker) after making changes.
 | `scheduler` | Preparation window and retries |
 | `tts` | Speech generation, fallback, and voices per language |
 | `audio` | FFmpeg/FFprobe, loudness, formats, and jingles |
+| `text` | Optional static HTML assets and their page template |
 | `output` | Data directories and retention period |
 | `announcements` | Shared text for hourly and half-hourly announcements |
 | `locations` | Locations and their individual settings |
@@ -77,9 +78,46 @@ Weatherbox must be invoked regularly with `run` or continuously with `serve`;
 the [operations guide](operations.md) explains these commands.
 
 `output.cache_dir` stores weather data, `state_dir` stores scheduler state,
-`generated_dir` stores versioned audio files, and `public_dir` stores files
+`generated_dir` stores versioned assets, and `public_dir` stores files
 with stable names. All four directories must be writable. See
 [output](operations.md#output) for cleanup details.
+
+## Static HTML text assets
+
+Weatherbox can publish a readable HTML page beside each audio announcement:
+
+```yaml
+text:
+  enabled: true
+  template: docs/template.example.html
+```
+
+The template path is optional and, like other configured paths, is resolved
+relative to the configuration file. Without it, Weatherbox uses the built-in
+page wrapper. The supplied [example template](template.example.html) supports
+`{language}`, `{location}`, `{location_id}`, `{message}`, `{kind}`, `{date}`,
+`{time}`, and `{year}`. Inserted values are HTML-escaped. Literal braces in
+custom CSS or JavaScript must be doubled (`{{` and `}}`).
+
+Text assets use the configured announcement sentence but format times, dates,
+hours, and minutes for reading instead of spelling them with the pronunciation
+rules. For example, German `{time}` is `14:00` in HTML while the corresponding
+TTS text remains `vierzehn Uhr`. Weather descriptions and summaries remain
+localized.
+
+For a text-only setup, disable audio. Neither a TTS provider nor FFmpeg is
+invoked during generation:
+
+```yaml
+audio:
+  enabled: false
+text:
+  enabled: true
+```
+
+At least one of `audio.enabled` or `text.enabled` must be true. HTML files use
+the same stable naming convention and directories as audio, for example
+`var/public/wittstock/full-hour.html`.
 
 ## Intros, outros, and music beds
 

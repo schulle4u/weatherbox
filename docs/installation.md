@@ -108,7 +108,8 @@ Then run a test as the service user:
 sudo -u weatherbox /opt/weatherbox/.venv/bin/wb-announcer --config /etc/weatherbox/config.yaml generate-all
 ```
 
-Audio files are saved under `/var/lib/weatherbox/public/<location-id>/`.
+Audio and optional HTML files are saved under
+`/var/lib/weatherbox/public/<location-id>/`.
 Custom models, language files, and jingles must be readable by the `weatherbox`
 user. The service unit blocks access to home directories; use subdirectories
 of `/etc/weatherbox`, for example, for these files.

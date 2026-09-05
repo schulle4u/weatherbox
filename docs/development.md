@@ -26,10 +26,11 @@ pytest
 
 ## Architecture rule
 
-Weatherbox does not produce live audio output. All configured formats are
-generated and validated with FFprobe first. Only then is each file moved
-atomically to its stable public location. If synthesis, processing, or
-validation fails, all previously published assets remain unchanged.
+Weatherbox does not produce live audio output. All configured audio formats are
+generated and validated with FFprobe first, and an optional HTML representation
+is rendered before publication. Only then is each file moved atomically to its
+stable public location. If synthesis, processing, or validation fails, all
+previously published assets remain unchanged.
 
 The weather implementation is in the `src/weatherbox/weather/` package:
 

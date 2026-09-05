@@ -1,4 +1,4 @@
-"""Manage versioned and stable paths for generated audio assets."""
+"""Manage versioned and stable paths for generated announcement assets."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from weatherbox.models import AnnouncementKind, AudioAsset
 
 
 class AssetManager:
-    """Publish generated audio to versioned and stable public paths."""
+    """Publish generated files to versioned and stable public paths."""
 
     def __init__(self, generated_dir: Path, public_dir: Path) -> None:
         """Initialize the manager with generated and public root directories."""
@@ -40,7 +40,7 @@ class AssetManager:
         )
 
     def publish(self, source: Path, asset: AudioAsset) -> AudioAsset:
-        """Atomically copy generated audio to its versioned and public paths."""
+        """Atomically copy a generated file to its versioned and public paths."""
         if not source.is_file() or source.stat().st_size == 0:
             raise AssetPublicationError("The asset to be published is missing or empty")
         asset.versioned_path.parent.mkdir(parents=True, exist_ok=True)

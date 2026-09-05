@@ -15,6 +15,41 @@ def test_load_config_and_resolve_paths(tmp_path):
     assert config.output.public_dir == tmp_path / "runtime/public"
     assert config.locations["wittstock"].announcements[AnnouncementKind.FULL_HOUR].enabled
     assert config.output.generated_retention_days is None
+    assert config.audio.enabled
+    assert not config.text.enabled
+
+
+def test_text_assets_and_text_only_output_can_be_configured(tmp_path):
+    path = write_test_config(tmp_path / "config.yaml")
+    template = tmp_path / "template.html"
+    template.write_text("<p>{message}</p>", encoding="utf-8")
+    path.write_text(
+        path.read_text(encoding="utf-8").replace(
+            "audio:\n",
+            "text:\n  enabled: true\n  template: template.html\naudio:\n  enabled: false\n",
+            1,
+        ),
+        encoding="utf-8",
+    )
+
+    config = load_config(path)
+
+    assert not config.audio.enabled
+    assert config.text.enabled
+    assert config.text.template == template
+
+
+def test_configuration_rejects_disabled_audio_and_text(tmp_path):
+    path = write_test_config(tmp_path / "config.yaml")
+    path.write_text(
+        path.read_text(encoding="utf-8").replace(
+            "audio:\n", "text:\n  enabled: false\naudio:\n  enabled: false\n", 1
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ConfigurationError, match="At least one asset output"):
+        load_config(path)
 
 
 def test_location_temperature_unit_can_be_configured(tmp_path):

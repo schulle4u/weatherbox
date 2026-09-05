@@ -198,6 +198,15 @@ class AudioSettings:
     output: AudioOutputSettings
     music_attenuation_db: float = -10.0
     music_fade_out_seconds: float = 2.5
+    enabled: bool = True
+
+
+@dataclass(frozen=True, slots=True)
+class TextAssetSettings:
+    """Static HTML announcement output settings."""
+
+    enabled: bool
+    template: Path | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -222,6 +231,7 @@ class Config:
     scheduler: SchedulerSettings
     tts: TTSSettings
     audio: AudioSettings
+    text: TextAssetSettings
     output: OutputSettings
     locations: dict[str, Location]
 
@@ -503,6 +513,17 @@ def load_config(path: str | Path) -> Config:
     espeak = _mapping(tts, "espeak-ng")
     gtts = _mapping(tts, "gtts")
     audio = _mapping(raw, "audio")
+    text_assets = _mapping(raw, "text")
+    _reject_unknown_keys(text_assets, {"enabled", "template"}, "text")
+    text_template_value = text_assets.get("template")
+    text_template = (
+        _resolve(base, text_template_value) if text_template_value else None
+    )
+    if text_assets.get("enabled", False) and text_template is not None:
+        if not text_template.is_file():
+            raise ConfigurationError(
+                f"Text asset template does not exist: {text_template}"
+            )
     loudness = _mapping(audio, "loudness")
     audio_output = _mapping(audio, "output")
     output = _mapping(raw, "output")
@@ -694,6 +715,12 @@ def load_config(path: str | Path) -> Config:
         "audio.output",
     )
     audio_formats = _audio_formats(audio_output)
+    audio_enabled = bool(audio.get("enabled", True))
+    text_enabled = bool(text_assets.get("enabled", False))
+    if not audio_enabled and not text_enabled:
+        raise ConfigurationError(
+            "At least one asset output must be enabled under 'audio' or 'text'"
+        )
     sample_rate = _positive(
         audio_output.get("sample_rate", 48000), "audio.output.sample_rate"
     )
@@ -753,6 +780,7 @@ def load_config(path: str | Path) -> Config:
             languages=tts_languages,
         ),
         audio=AudioSettings(
+            enabled=audio_enabled,
             ffmpeg=str(audio.get("ffmpeg", "ffmpeg")),
             ffprobe=str(audio.get("ffprobe", "ffprobe")),
             loudness=LoudnessSettings(
@@ -770,6 +798,7 @@ def load_config(path: str | Path) -> Config:
             music_attenuation_db=music_attenuation,
             music_fade_out_seconds=music_fade_out,
         ),
+        text=TextAssetSettings(enabled=text_enabled, template=text_template),
         output=OutputSettings(
             cache_dir=_resolve(base, output.get("cache_dir", "var/cache")),
             generated_dir=_resolve(base, output.get("generated_dir", "var/generated")),

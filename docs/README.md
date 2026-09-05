@@ -7,7 +7,7 @@ These guides cover configuring and operating Weatherbox in more detail.
 | --- | --- |
 | [Installation and Linux service](installation.md) | Native installation, Windows, systemd, and HTTP delivery |
 | [Docker](docker.md) | Compose, persistent data, updates, custom files, and Piper |
-| [Configuration](configuration.md) | YAML structure, locations, weather sources, voices, and audio |
+| [Configuration](configuration.md) | YAML structure, locations, weather sources, audio, and HTML text assets |
 | [Templates and languages](templates.md) | Announcement text, all placeholders, and custom language files |
 | [Operation and command line](operations.md) | Manual generation, continuous operation, status, and retention |
 | [Development](development.md) | Development setup, tests, and architecture |

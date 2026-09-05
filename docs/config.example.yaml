@@ -65,6 +65,7 @@ tts:
   #       tld: co.uk
 
 audio:
+  enabled: true
   ffmpeg: ffmpeg
   ffprobe: ffprobe
   loudness:
@@ -111,6 +112,13 @@ output:
   generated_retention_days: 30
   public_dir: var/public
   state_dir: var/state
+
+# Publish a readable HTML version beside every audio announcement. With
+# audio.enabled: false this is a text-only setup and does not invoke TTS or
+# FFmpeg. Omit template to use Weatherbox's built-in HTML wrapper.
+text:
+  enabled: true
+  template: docs/template.example.html
 
 # Announcements can be fully overridden per location.
 announcements:

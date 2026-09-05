@@ -95,6 +95,113 @@ def test_generation_publishes_every_configured_audio_format(tmp_path, now, weath
     assert tuple(path.suffix for path in audio.outputs) == (".mp3", ".flac", ".opus")
 
 
+def test_generation_publishes_readable_html_alongside_audio(tmp_path, now, weather):
+    path = write_test_config(tmp_path / "config.yaml")
+    template = tmp_path / "weather.html"
+    template.write_text(
+        '<html lang="{language}"><title>{location}</title><p>{message}</p>'
+        '<small>{date} {time} {kind} {year}</small></html>',
+        encoding="utf-8",
+    )
+    path.write_text(
+        path.read_text(encoding="utf-8").replace(
+            "audio:\n", "text:\n  enabled: true\n  template: weather.html\naudio:\n", 1
+        ),
+        encoding="utf-8",
+    )
+    config = load_config(path)
+    tts = FakeTTS()
+    service = WeatherboxService(
+        config,
+        weather_provider=FakeWeatherProvider(now, weather),
+        tts_provider=tts,
+        audio_pipeline=FakeAudio(),
+        now_fn=lambda: now,
+    )
+    item = service.manual_items(
+        (config.locations["wittstock"],), (AnnouncementKind.FULL_HOUR,)
+    )[0]
+
+    service.generate(item)
+
+    public_html = config.output.public_dir / "wittstock/full-hour.html"
+    versioned_html = config.output.generated_dir / "wittstock/2026-08-18/14-00-full.html"
+    assert public_html.is_file()
+    assert versioned_html.read_text(encoding="utf-8") == public_html.read_text(encoding="utf-8")
+    assert "Es ist 14:00 in Wittstock. 18,2 Grad." in public_html.read_text(encoding="utf-8")
+    assert "18.08.2026 14:00 full_hour 2026" in public_html.read_text(encoding="utf-8")
+    assert tts.texts == ["Es ist vierzehn Uhr in Wittstock. 18,2 Grad."]
+
+
+def test_text_only_generation_does_not_invoke_tts_or_audio(tmp_path, now, weather):
+    path = write_test_config(tmp_path / "config.yaml")
+    path.write_text(
+        path.read_text(encoding="utf-8").replace(
+            "audio:\n", "text:\n  enabled: true\naudio:\n  enabled: false\n", 1
+        ),
+        encoding="utf-8",
+    )
+    config = load_config(path)
+
+    class UnexpectedTTS(FakeTTS):
+        def synthesize(self, text, output_path):
+            raise AssertionError("TTS must not run for text-only output")
+
+    class UnexpectedAudio(FakeAudio):
+        def process(self, speech_path, output_path, jingles=None):
+            raise AssertionError("Audio processing must not run for text-only output")
+
+    service = WeatherboxService(
+        config,
+        weather_provider=FakeWeatherProvider(now, weather),
+        tts_provider=UnexpectedTTS(),
+        audio_pipeline=UnexpectedAudio(),
+        now_fn=lambda: now,
+    )
+    item = service.manual_items(
+        (config.locations["wittstock"],), (AnnouncementKind.FULL_HOUR,)
+    )[0]
+
+    asset = service.generate(item)
+
+    assert asset.public_path.name == "full-hour.html"
+    assert "Es ist 14:00" in asset.public_path.read_text(encoding="utf-8")
+
+
+def test_text_asset_escapes_location_and_message(tmp_path, now, weather):
+    locations = """
+  coast:
+    name: Rügen & Meer
+    latitude: 54.4
+    longitude: 13.4
+    timezone: Europe/Berlin
+    announcements:
+      full_hour:
+        template: 'Wetter <stark> für {location}: {temperature} Grad.'
+"""
+    path = write_test_config(tmp_path / "config.yaml", locations)
+    path.write_text(
+        path.read_text(encoding="utf-8").replace(
+            "audio:\n", "text:\n  enabled: true\naudio:\n  enabled: false\n", 1
+        ),
+        encoding="utf-8",
+    )
+    config = load_config(path)
+    service = WeatherboxService(
+        config,
+        weather_provider=FakeWeatherProvider(now, weather),
+        now_fn=lambda: now,
+    )
+    item = service.manual_items(
+        (config.locations["coast"],), (AnnouncementKind.FULL_HOUR,)
+    )[0]
+
+    html = service.generate(item).public_path.read_text(encoding="utf-8")
+
+    assert "Rügen &amp; Meer" in html
+    assert "Wetter &lt;stark&gt;" in html
+
+
 def test_format_failure_does_not_replace_any_existing_asset(tmp_path, now, weather):
     path = write_test_config(tmp_path / "config.yaml")
     path.write_text(

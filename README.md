@@ -2,18 +2,18 @@
 
 English | [Deutsch](README-de.md)
 
-Weatherbox automatically creates spoken weather reports for your locations —
+Weatherbox automatically creates spoken or static weather reports for your locations —
 for example, for an internet radio station or a Raspberry Pi used as a player.
 Announcements are prepared for the hour and half-hour and made available as
-finished audio files. Play them using your own radio automation software or
-audio player. Once downloaded, announcements can be played even without an
-internet connection.
+finished audio or HTML files. Play or display them using your own radio
+automation software, audio player, or browser. Once downloaded, announcements
+remain available even without an internet connection.
 
 You can set up multiple locations, use German or English announcement text,
 and add your own intros, outros, and background music.
 Weather data comes from Open-Meteo and/or the German Weather Service (DWD);
 speech is generated using gTTS, Piper, or eSpeak NG.
-The default output is MP3, with other audio formats available.
+The default output is MP3, with other audio formats and readable HTML assets available.
 
 ## Choose an installation method
 
@@ -115,8 +115,9 @@ Commands you can copy are in the
 
 ## Using and customizing announcements
 
-Weatherbox generates audio files; your player or radio automation software
-handles scheduled playback. To retrieve files over the network, you can
+Weatherbox generates audio and optional HTML files; your player, radio automation
+software, or a human presenter handles their scheduled use. To retrieve files
+over the network, you can
 [serve them through a web server](docs/installation.md#serving-files-over-http).
 
 The supplied quick-start examples use German announcement text. For English

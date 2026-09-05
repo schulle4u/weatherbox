@@ -5,13 +5,36 @@ import pytest
 
 from weatherbox.errors import TemplateRenderError
 from weatherbox.models import TemperatureUnit, WeatherWarning
-from weatherbox.templates import build_context, render_template
+from weatherbox.templates import build_context, render_template, render_text_asset
 
 
 def test_render_valid_template(location, weather, now, german_formatter):
     context = build_context(location, now.replace(hour=14, minute=0), weather, german_formatter)
     result = render_template("{time} in {location}: {temperature} Grad, Wind aus {wind_direction}.", context)
     assert result == "vierzehn Uhr in Wittstock: 18,2 Grad, Wind aus Südwesten."
+
+
+def test_readable_context_does_not_spell_time_or_date(
+    location, weather, now, german_formatter
+):
+    context = build_context(
+        location, now.replace(hour=14, minute=5), weather, german_formatter, spoken=False
+    )
+
+    assert context["time"] == "14:05"
+    assert context["hour"] == "14"
+    assert context["minute"] == "05"
+    assert context["date"] == "18.08.2026"
+
+
+def test_text_asset_renderer_escapes_inserted_values():
+    result = render_text_asset(
+        '<html lang="{language}"><p>{message}</p></html>',
+        {"language": 'de" data-test="x', "message": "Wind < Sturm"},
+    )
+
+    assert 'lang="de&quot; data-test=&quot;x"' in result
+    assert "Wind &lt; Sturm" in result
 
 
 def test_temperature_values_are_converted_to_location_unit(

@@ -50,10 +50,15 @@ An announcement for Wittstock might produce:
 var/generated/wittstock/2026-08-18/14-00-full.mp3
 var/generated/wittstock/2026-08-18/14-00-full.flac
 var/generated/wittstock/2026-08-18/14-00-full.opus
+var/generated/wittstock/2026-08-18/14-00-full.html
 var/public/wittstock/full-hour.mp3
 var/public/wittstock/full-hour.flac
 var/public/wittstock/full-hour.opus
+var/public/wittstock/full-hour.html
 ```
+
+The HTML entries are present when `text.enabled` is true. In a text-only
+configuration they are the only generated and published representation.
 
 Only the files with stable names under `public_dir` are served by Caddy or
 nginx. The Python application does not provide a public web server.

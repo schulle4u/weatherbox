@@ -25,7 +25,12 @@ from weatherbox.models import (
 )
 from weatherbox.scheduler import Scheduler, next_playback
 from weatherbox.state import StateStore
-from weatherbox.templates import build_context, render_template
+from weatherbox.templates import (
+    DEFAULT_TEXT_ASSET_TEMPLATE,
+    build_context,
+    render_template,
+    render_text_asset,
+)
 from weatherbox.tts import FallbackTTSProvider, create_tts_provider
 from weatherbox.weather import WeatherCache, create_weather_provider
 from weatherbox.weather.base import WeatherProvider
@@ -54,10 +59,14 @@ class WeatherboxService:
         self.languages = LanguageCatalog(config.localization.directory)
         self._injected_tts_provider = tts_provider
         self._tts_providers: dict[str, FallbackTTSProvider] = {}
-        self.tts_provider = tts_provider or self._tts_for_language(
-            config.localization.default_language
+        self.tts_provider = tts_provider
+        if config.audio.enabled:
+            self.tts_provider = tts_provider or self._tts_for_language(
+                config.localization.default_language
+            )
+        self.audio = audio_pipeline or (
+            AudioPipeline(config.audio) if config.audio.enabled else None
         )
-        self.audio = audio_pipeline or AudioPipeline(config.audio)
         self.assets = AssetManager(config.output.generated_dir, config.output.public_dir)
         self.state = StateStore(config.output.state_dir / "announcements.json")
         self.scheduler = Scheduler(config.scheduler, self.state)
@@ -131,9 +140,44 @@ class WeatherboxService:
         try:
             weather = self.get_weather(item.location, item.playback_at)
             formatter = self.languages.get(item.location.language)
-            context = build_context(item.location, item.playback_at, weather, formatter)
-            text = render_template(item.location.announcements[item.kind].template, context)
-            LOG.info("Template rendered", extra={"location_id": item.location.id, "kind": item.kind.value})
+            announcement_template = item.location.announcements[item.kind].template
+            spoken_text = None
+            if self.config.audio.enabled:
+                spoken_context = build_context(
+                    item.location, item.playback_at, weather, formatter
+                )
+                spoken_text = render_template(announcement_template, spoken_context)
+
+            html = None
+            if self.config.text.enabled:
+                readable_context = build_context(
+                    item.location,
+                    item.playback_at,
+                    weather,
+                    formatter,
+                    spoken=False,
+                )
+                message = render_template(announcement_template, readable_context)
+                wrapper = DEFAULT_TEXT_ASSET_TEMPLATE
+                if self.config.text.template is not None:
+                    wrapper = self.config.text.template.read_text(encoding="utf-8")
+                html = render_text_asset(
+                    wrapper,
+                    {
+                        "language": item.location.language,
+                        "location": item.location.name,
+                        "location_id": item.location.id,
+                        "message": message,
+                        "kind": item.kind.value,
+                        "date": readable_context["date"],
+                        "time": readable_context["time"],
+                        "year": item.playback_at.year,
+                    },
+                )
+            LOG.info(
+                "Template rendered",
+                extra={"location_id": item.location.id, "kind": item.kind.value},
+            )
 
             self.config.output.generated_dir.mkdir(parents=True, exist_ok=True)
             with tempfile.TemporaryDirectory(
@@ -141,43 +185,66 @@ class WeatherboxService:
                 dir=self.config.output.generated_dir,
             ) as temporary_dir:
                 temporary = Path(temporary_dir)
-                # Providers may produce WAV (Piper/eSpeak) or MP3 (gTTS).
-                # FFmpeg detects the actual input format from the file contents.
-                speech_path = temporary / "speech.audio"
-                tts_provider = self._tts_for_language(item.location.language)
-                tts_provider.synthesize(text, speech_path)
-                LOG.info(
-                    "TTS synthesis completed",
-                    extra={
-                        "location_id": item.location.id,
-                        "provider": tts_provider.last_provider,
-                        "language": item.location.language,
-                    },
-                )
                 rendered_assets: list[tuple[Path, AudioAsset]] = []
-                for audio_format in self.config.audio.output.formats:
-                    audio_path = temporary / f"announcement.{audio_format.extension}"
-                    self.audio.process(
-                        speech_path,
-                        audio_path,
-                        item.location.jingles.get(item.kind),
+                if self.config.audio.enabled:
+                    # Providers may produce WAV (Piper/eSpeak) or MP3 (gTTS).
+                    # FFmpeg detects the actual input format from the file contents.
+                    speech_path = temporary / "speech.audio"
+                    tts_provider = self._tts_for_language(item.location.language)
+                    tts_provider.synthesize(spoken_text, speech_path)
+                    LOG.info(
+                        "TTS synthesis completed",
+                        extra={
+                            "location_id": item.location.id,
+                            "provider": tts_provider.last_provider,
+                            "language": item.location.language,
+                        },
                     )
+                    for audio_format in self.config.audio.output.formats:
+                        audio_path = temporary / f"announcement.{audio_format.extension}"
+                        self.audio.process(
+                            speech_path,
+                            audio_path,
+                            item.location.jingles.get(item.kind),
+                        )
+                        rendered_assets.append(
+                            (
+                                audio_path,
+                                self.assets.paths(
+                                    item.location.id,
+                                    item.kind,
+                                    item.playback_at,
+                                    audio_format.extension,
+                                ),
+                            )
+                        )
+                        LOG.info(
+                            "Audio format validated",
+                            extra={
+                                "location_id": item.location.id,
+                                "format": audio_format.name,
+                            },
+                        )
+
+                if html is not None:
+                    html_path = temporary / "announcement.html"
+                    html_path.write_text(html, encoding="utf-8")
                     rendered_assets.append(
                         (
-                            audio_path,
+                            html_path,
                             self.assets.paths(
                                 item.location.id,
                                 item.kind,
                                 item.playback_at,
-                                audio_format.extension,
+                                "html",
                             ),
                         )
                     )
                     LOG.info(
-                        "Audio format validated",
+                        "Text asset rendered",
                         extra={
                             "location_id": item.location.id,
-                            "format": audio_format.name,
+                            "format": "html",
                         },
                     )
 
@@ -320,7 +387,11 @@ class WeatherboxService:
                 provider.name for provider in self.config.weather.providers
             ],
             "weather_cache": caches,
-            "tts_provider": self.config.tts.provider,
+            "tts_provider": self.config.tts.provider if self.config.audio.enabled else None,
+            "asset_outputs": {
+                "audio": self.config.audio.enabled,
+                "text": self.config.text.enabled,
+            },
             "languages": {
                 location.id: location.language for location in self.config.enabled_locations
             },

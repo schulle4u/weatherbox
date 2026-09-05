@@ -8,6 +8,11 @@ tts:
   provider: gtts
   fallback_provider: null
 
+# Optional static HTML assets (full-hour.html and half-hour.html):
+# text:
+#   enabled: true
+#   template: docs/template.example.html
+
 output:
   cache_dir: var/cache
   generated_dir: var/generated

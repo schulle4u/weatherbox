@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from html import escape
 from string import Formatter
 from typing import Any
 
@@ -39,20 +40,55 @@ ALLOWED_FIELDS = frozenset(
     }
 )
 
+TEXT_ASSET_FIELDS = frozenset(
+    {"language", "location", "location_id", "message", "kind", "date", "time", "year"}
+)
+
+DEFAULT_TEXT_ASSET_TEMPLATE = """<!DOCTYPE html>
+<html lang="{language}">
+<head>
+<title>{location} - Weatherbox</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="stylesheet" href="https://cdn.simplecss.org/simple.min.css">
+</head>
+<body>
+<main>
+<h1>{location}</h1>
+<p class="message">{message}</p>
+</main>
+<footer>
+<p class="notice">Copyright &copy; {year}.</p>
+</footer>
+</body>
+</html>
+"""
+
 
 def build_context(
     location: Location,
     playback_at: datetime,
     weather: WeatherData,
     formatter: LanguageFormatter,
+    *,
+    spoken: bool = True,
 ) -> dict[str, Any]:
     """Build the localized placeholder values for an announcement template."""
+    format_time = formatter.format_time if spoken else _readable_time
     context: dict[str, Any] = {
         "greeting": formatter.greeting(playback_at),
-        "time": formatter.format_time(playback_at),
-        "hour": formatter.format_hour(playback_at.hour),
-        "minute": formatter.format_decimal(playback_at.minute),
-        "date": formatter.format_date(playback_at),
+        "time": format_time(playback_at),
+        "hour": formatter.format_hour(playback_at.hour) if spoken else str(playback_at.hour),
+        "minute": (
+            formatter.format_decimal(playback_at.minute)
+            if spoken
+            else f"{playback_at.minute:02d}"
+        ),
+        "date": (
+            formatter.format_date(playback_at)
+            if spoken
+            else _readable_date(playback_at, formatter.code)
+        ),
         "location": location.name,
         "latitude": formatter.format_decimal(location.latitude),
         "longitude": formatter.format_decimal(location.longitude),
@@ -61,9 +97,9 @@ def build_context(
         "weather_code": weather.weather_code,
         "wind_direction": formatter.wind_direction(weather.wind_direction),
         "wind_direction_degrees": formatter.format_decimal(weather.wind_direction),
-        "sunrise": formatter.format_time(weather.sunrise) if weather.sunrise else None,
-        "sunset": formatter.format_time(weather.sunset) if weather.sunset else None,
-        "forecast_time": formatter.format_time(weather.forecast_at),
+        "sunrise": format_time(weather.sunrise) if weather.sunrise else None,
+        "sunset": format_time(weather.sunset) if weather.sunset else None,
+        "forecast_time": format_time(weather.forecast_at),
         "temperature_source": weather.source_for("temperature"),
         "weather_source": weather.source_for("weather_code"),
     }
@@ -84,10 +120,10 @@ def build_context(
             "warning_instruction": primary_warning.instruction if primary_warning else None,
             "warning_source": primary_warning.source if primary_warning else None,
             "warning_start": (
-                formatter.format_time(primary_warning.start) if primary_warning else None
+                format_time(primary_warning.start) if primary_warning else None
             ),
             "warning_end": (
-                formatter.format_time(primary_warning.end)
+                format_time(primary_warning.end)
                 if primary_warning and primary_warning.end
                 else None
             ),
@@ -129,6 +165,57 @@ def build_context(
         }
     )
     return context
+
+
+def _readable_time(value: datetime) -> str:
+    """Format a compact, non-spoken time for display."""
+    return value.strftime("%H:%M")
+
+
+def _readable_date(value: datetime, language: str) -> str:
+    """Format a numeric date without pronunciation dictionary rules."""
+    if language == "de":
+        return value.strftime("%d.%m.%Y")
+    if language == "en":
+        return value.strftime("%m/%d/%Y")
+    return value.strftime("%Y-%m-%d")
+
+
+def render_text_asset(template: str, context: dict[str, Any]) -> str:
+    """Render an HTML wrapper while escaping every inserted text value."""
+    fields: set[str] = set()
+    try:
+        for _, field_name, format_spec, conversion in Formatter().parse(template):
+            if field_name is None:
+                continue
+            if not field_name or any(token in field_name for token in (".", "[", "]")):
+                raise TemplateRenderError(f"Invalid text asset placeholder: {{{field_name}}}")
+            if format_spec or conversion:
+                raise TemplateRenderError(
+                    f"Format specifications are not permitted: {{{field_name}}}"
+                )
+            fields.add(field_name)
+    except ValueError as exc:
+        raise TemplateRenderError(f"Invalid text asset template: {exc}") from exc
+
+    unknown = fields - TEXT_ASSET_FIELDS
+    if unknown:
+        raise TemplateRenderError(
+            f"Unknown text asset variables: {', '.join(sorted(unknown))}"
+        )
+    missing = sorted(name for name in fields if context.get(name) is None)
+    if missing:
+        raise TemplateRenderError(
+            f"No data for text asset variables: {', '.join(missing)}"
+        )
+    escaped = {name: escape(str(value), quote=True) for name, value in context.items()}
+    try:
+        rendered = template.format_map(escaped)
+    except (KeyError, ValueError) as exc:
+        raise TemplateRenderError(f"Text asset template could not be rendered: {exc}") from exc
+    if not rendered.strip():
+        raise TemplateRenderError("The rendered text asset template is empty")
+    return rendered
 
 
 def render_template(template: str, context: dict[str, Any]) -> str:

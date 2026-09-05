@@ -2,18 +2,20 @@
 
 [English](README.md) | Deutsch
 
-Weatherbox erstellt automatisch gesprochene Wetterberichte für deine Standorte –
+Weatherbox erstellt automatisch gesprochene oder statische Wetterberichte für deine Standorte –
 zum Beispiel für ein Webradio oder einen Raspberry Pi als Abspielgerät.
 Die Ansagen werden zur vollen und halben Stunde vorbereitet und als fertige
-Audiodateien bereitgestellt. Du spielst sie mit deiner eigenen Radioautomation
-oder einem Audioplayer ab. Bereits heruntergeladene Ansagen lassen sich auch
-bei unterbrochener Internetverbindung abspielen.
+Audio- oder HTML-Dateien bereitgestellt. Du spielst oder zeigst sie mit deiner
+eigenen Radioautomation, einem Audioplayer oder Browser. Bereits
+heruntergeladene Ansagen bleiben auch bei unterbrochener Internetverbindung
+verfügbar.
 
 Du kannst mehrere Orte einrichten, deutsche oder englische Ansagetexte verwenden
 und auf Wunsch eigene Intros, Outros und Hintergrundmusik hinzufügen.
 Wetterdaten kommen von Open-Meteo und/oder dem Deutschen Wetterdienst;
 Sprachausgabe ist über gTTS, Piper oder eSpeak NG möglich.
-Die Ausgabe erfolgt standardmäßig als MP3, weitere Audioformate sind verfügbar.
+Die Ausgabe erfolgt standardmäßig als MP3; weitere Audioformate und
+lesefreundliche HTML-Assets sind verfügbar.
 
 ## Installation wählen
 
@@ -118,9 +120,10 @@ Die kopierbaren Befehle stehen in der
 
 ## Ansagen verwenden und anpassen
 
-Weatherbox erzeugt Audiodateien; die zeitgesteuerte Wiedergabe übernimmt dein
-Abspielgerät oder deine Radioautomation. Für den Abruf über das Netzwerk kannst
-du die Dateien über einen [Webserver bereitstellen](docs/installation.md#serving-files-over-http).
+Weatherbox erzeugt Audio- und optional HTML-Dateien; die zeitgesteuerte Nutzung
+übernimmt dein Abspielgerät, deine Radioautomation oder ein Mensch in einer
+Livesendung. Für den Abruf über das Netzwerk kannst du die Dateien über einen
+[Webserver bereitstellen](docs/installation.md#serving-files-over-http).
 
 Die technische Dokumentation ist auf Englisch verfügbar.
 Weitere Einstellungen findest du in der [Dokumentationsübersicht](docs/README.md):

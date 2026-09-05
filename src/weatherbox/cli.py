@@ -19,7 +19,7 @@ from weatherbox.service import WeatherboxService
 
 def build_parser() -> argparse.ArgumentParser:
     """Build the command-line argument parser."""
-    parser = argparse.ArgumentParser(prog="wb-announcer", description="Weatherbox audio asset generator")
+    parser = argparse.ArgumentParser(prog="wb-announcer", description="Weatherbox announcement asset generator")
     parser.add_argument("-c", "--config", type=Path, default=Path("config.yaml"))
     subparsers = parser.add_subparsers(dest="command", required=True)
 

@@ -147,3 +147,16 @@ output. Invalid or incomplete language files are rejected at startup.
 
 Templates are not translated automatically. Each location using a different
 language therefore needs suitable templates for its enabled announcement types.
+
+## HTML page template
+
+When `text.enabled` is true, the announcement template above is rendered a
+second time with reader-friendly numeric time and date values. Its result is
+inserted into an HTML page template as `{message}`. The built-in page can be
+replaced with [template.example.html](template.example.html); the full
+configuration example shows how to select it.
+
+The HTML page supports `{language}`, `{location}`, `{location_id}`, `{message}`,
+`{kind}`, `{date}`, `{time}`, and `{year}`. These values are escaped before
+insertion so weather data and location names cannot add HTML markup. If the
+page template contains literal braces, write them as `{{` and `}}`.

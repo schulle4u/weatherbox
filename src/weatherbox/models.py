@@ -271,7 +271,7 @@ class ScheduledAnnouncement:
 
 @dataclass(frozen=True, slots=True)
 class AudioAsset:
-    """Paths and metadata for a generated and published audio file."""
+    """Paths and metadata for a generated and published announcement file."""
 
     location_id: str
     kind: AnnouncementKind

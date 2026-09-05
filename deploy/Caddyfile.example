@@ -1,8 +1,8 @@
 audio.example.org {
 	root * /var/lib/weatherbox/public
 
-	@audio path *.mp3 *.wav *.flac *.ogg *.opus *.m4a
-	header @audio {
+	@assets path *.mp3 *.wav *.flac *.ogg *.opus *.m4a *.html
+	header @assets {
 		Cache-Control "public, max-age=60, must-revalidate"
 	}
 
