@@ -4,12 +4,17 @@ from __future__ import annotations
 
 from datetime import datetime
 from html import escape
+import logging
+import re
 from string import Formatter
 from typing import Any
 
 from weatherbox.errors import TemplateRenderError
 from weatherbox.localization import LanguageFormatter
 from weatherbox.models import Location, WeatherData
+
+
+logger = logging.getLogger(__name__)
 
 
 TEMPERATURE_FIELDS = frozenset(
@@ -219,7 +224,7 @@ def render_text_asset(template: str, context: dict[str, Any]) -> str:
 
 
 def render_template(template: str, context: dict[str, Any]) -> str:
-    """Render a template after validating its fields and required values."""
+    """Validate a template and omit sentences whose values are unavailable."""
     fields: set[str] = set()
     try:
         parsed = Formatter().parse(template)
@@ -239,7 +244,22 @@ def render_template(template: str, context: dict[str, Any]) -> str:
         raise TemplateRenderError(f"Unknown template variables: {', '.join(sorted(unknown))}")
     missing = sorted(name for name in fields if context.get(name) is None)
     if missing:
-        raise TemplateRenderError(f"No data for template variables: {', '.join(missing)}")
+        logger.warning(
+            "Omitting template sentences with unavailable variables: %s",
+            ", ".join(missing),
+        )
+        # Split before interpolation: decimal values and punctuation in provider
+        # descriptions must not affect which template text gets omitted.
+        sentences = re.split(r"(?<=[.!?])\s+|[\r\n]+", template)
+        template = " ".join(
+            sentence
+            for sentence in sentences
+            if not any(
+                field_name in missing
+                for _, field_name, _, _ in Formatter().parse(sentence)
+                if field_name is not None
+            )
+        )
     try:
         rendered = template.format_map(context)
     except (KeyError, ValueError) as exc:

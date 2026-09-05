@@ -111,8 +111,36 @@ def test_unknown_variable_fails(location, weather, now, german_formatter):
 def test_missing_weather_value_fails(location, weather, now, german_formatter):
     context = build_context(location, now, weather, german_formatter)
     context["temperature"] = None
-    with pytest.raises(TemplateRenderError, match="temperature"):
+    with pytest.raises(TemplateRenderError, match="rendered template is empty"):
         render_template("{temperature}", context)
+
+
+@pytest.mark.parametrize("separator", [" ", "\n"])
+def test_missing_values_omit_whole_sentences(separator, caplog):
+    context = {"temperature": "18,2", "wind_speed": None, "precipitation": "0"}
+    template = separator.join([
+        "Temperatur: {temperature} Grad.",
+        "Wind: {wind_speed} km/h, Böen: {wind_gusts} km/h!",
+        "Niederschlag: {precipitation} mm.",
+    ])
+    assert render_template(template, context) == (
+        "Temperatur: 18,2 Grad. Niederschlag: 0 mm."
+    )
+    assert "wind_speed" in caplog.text
+    assert "wind_gusts" in caplog.text
+    assert context["wind_speed"] is None
+
+
+def test_missing_values_do_not_hide_invalid_fields():
+    with pytest.raises(TemplateRenderError, match="Unknown template variables"):
+        render_template("{temperature} {typo}.", {"temperature": None})
+
+
+def test_sentence_omission_preserves_escaped_braces_and_provider_punctuation():
+    assert render_template(
+        "{{temperature}}: {temperature}. Wind: {wind_speed}. {weather_description}",
+        {"temperature": "18.2", "wind_speed": None, "weather_description": "Rain. Wind!"},
+    ) == "{temperature}: 18.2. Rain. Wind!"
 
 
 def test_unused_missing_value_is_allowed(location, weather, now, german_formatter):

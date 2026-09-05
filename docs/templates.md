@@ -70,9 +70,17 @@ The following variables are currently supported:
 
 Numeric values are rounded to one decimal place, unnecessary decimal places
 are removed, and the decimal separator is localized.
-An unknown variable, a format specifier such as `{temperature:.1f}`, or a
-referenced value that is unavailable in the current forecast causes generation
-to stop with a controlled error. The previously published audio asset is preserved.
+If a referenced value is unavailable (for example after a provider fallback),
+the renderer omits the entire template sentence containing it and logs the
+missing variable names. This applies to both audio and HTML announcements.
+Sentences are separated by `.`, `!`, or `?` followed by whitespace, or by a
+line break. Put independent weather details in separate sentences; abbreviations
+with periods followed by spaces also count as sentence boundaries. Missing
+standalone daily summaries are omitted as well.
+An unknown variable or a format specifier such as `{temperature:.1f}` still
+causes a controlled error, even in a sentence with missing data. If omission
+leaves an empty announcement, generation also fails. Previously published assets
+are preserved on failure.
 `{warning_count}` and `{warning_text}` are always populated. Other warning
 fields can only be used when a corresponding warning is active at playback time.
 With multiple warnings, individual fields refer to the warning with the highest

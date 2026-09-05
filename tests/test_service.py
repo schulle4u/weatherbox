@@ -7,6 +7,7 @@ from conftest import write_test_config
 from weatherbox.config import load_config
 from weatherbox.models import AnnouncementKind, ForecastBundle
 from weatherbox.service import WeatherboxService
+from weatherbox.weather.merged import MergedWeatherProvider
 
 
 class FakeWeatherProvider:
@@ -42,6 +43,48 @@ class FakeAudio:
             raise RuntimeError("ffmpeg failed")
         self.outputs.append(output_path)
         output_path.write_bytes(b"valid fake mp3")
+
+
+def test_provider_fallback_with_missing_values_publishes_audio_and_html(tmp_path, now, weather):
+    path = write_test_config(tmp_path / "config.yaml")
+    path.write_text(
+        path.read_text(encoding="utf-8")
+        .replace("audio:\n", "text:\n  enabled: true\naudio:\n", 1)
+        .replace(
+            "{temperature} Grad.",
+            "{temperature} Grad. Gefühlt {apparent_temperature} Grad. "
+            "Regenwahrscheinlichkeit: {precipitation_probability} Prozent.",
+        ),
+        encoding="utf-8",
+    )
+    config = load_config(path)
+    provider = MergedWeatherProvider(
+        (
+            ("open-meteo", FakeWeatherProvider(now, weather, ("wittstock",))),
+            ("dwd", FakeWeatherProvider(now, replace(
+                weather, apparent_temperature=None, precipitation_probability=None,
+            ))),
+        ),
+        default_priority=("open-meteo", "dwd"),
+        field_priority={},
+    )
+    tts = FakeTTS()
+    service = WeatherboxService(
+        config, weather_provider=provider, tts_provider=tts,
+        audio_pipeline=FakeAudio(), now_fn=lambda: now,
+    )
+    item = service.manual_items(
+        (config.locations["wittstock"],), (AnnouncementKind.FULL_HOUR,)
+    )[0]
+
+    asset = service.generate(item)
+
+    assert asset.public_path.read_bytes() == b"valid fake mp3"
+    assert tts.texts == ["Es ist vierzehn Uhr in Wittstock. 18,2 Grad."]
+    html = (config.output.public_dir / "wittstock/full-hour.html").read_text(encoding="utf-8")
+    assert "Es ist 14:00 in Wittstock. 18,2 Grad." in html
+    assert "Gefühlt" not in html
+    assert "Regenwahrscheinlichkeit" not in html
 
 
 def test_end_to_end_generation_publishes_both_asset_paths(tmp_path, now, weather):
