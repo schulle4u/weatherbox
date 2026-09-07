@@ -751,7 +751,7 @@ def load_config(path: str | Path) -> Config:
         ),
         weather=weather_settings,
         scheduler=SchedulerSettings(
-            preparation_minutes=_positive(scheduler.get("preparation_minutes", 10), "scheduler.preparation_minutes"),
+            preparation_minutes=_positive(scheduler.get("preparation_minutes", 13), "scheduler.preparation_minutes"),
             retry=RetrySettings(
                 interval_seconds=_positive(retry.get("interval_seconds", 60), "scheduler.retry.interval_seconds"),
                 max_attempts=_positive(retry.get("max_attempts", 5), "scheduler.retry.max_attempts"),

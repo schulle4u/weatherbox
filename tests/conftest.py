@@ -100,7 +100,7 @@ weather:
   update_interval_minutes: 30
   max_cache_age_minutes: 60
 scheduler:
-  preparation_minutes: 10
+  preparation_minutes: 13
   retry:
     interval_seconds: 60
     max_attempts: 3

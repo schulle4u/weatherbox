@@ -30,7 +30,8 @@ weather:
       warnings: [dwd, open-meteo]
 
 scheduler:
-  preparation_minutes: 10
+  # It is recommended that you use an uneven value for preparation_minutes. This is to avoid error 503 for open-meteo API.
+  preparation_minutes: 13
   retry:
     interval_seconds: 60
     max_attempts: 5

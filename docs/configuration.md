@@ -71,7 +71,7 @@ See the [template reference](templates.md) for text and language settings.
 ## Scheduling and data directories
 
 `scheduler.preparation_minutes` specifies how many minutes before playback
-generation starts (default: 10).
+generation starts. Use an uneven value to avoid error 503 (default: 13).
 `scheduler.retry.interval_seconds` and `max_attempts` control retries for failed
 announcements (defaults: 60 seconds and 5 attempts).
 Weatherbox must be invoked regularly with `run` or continuously with `serve`;
