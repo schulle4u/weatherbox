@@ -362,6 +362,25 @@ def test_provider_failure_uses_cache_within_maximum_age(tmp_path, now, weather):
     assert not result[item.key].startswith("ERROR:")
 
 
+def test_freshly_fetched_cache_is_checked_against_time_after_request(
+    tmp_path, now, weather
+):
+    config = load_config(write_test_config(tmp_path / "config.yaml"))
+    fetched_at = now + timedelta(seconds=2)
+    clock = iter((now, now + timedelta(seconds=3)))
+    service = WeatherboxService(
+        config,
+        weather_provider=FakeWeatherProvider(fetched_at, weather),
+        tts_provider=FakeTTS(),
+        audio_pipeline=FakeAudio(),
+        now_fn=lambda: next(clock),
+    )
+
+    result = service.get_weather(config.locations["wittstock"], weather.forecast_at)
+
+    assert result == weather
+
+
 def test_ffmpeg_failure_keeps_existing_asset(tmp_path, now, weather):
     config = load_config(write_test_config(tmp_path / "config.yaml"))
     working = WeatherboxService(

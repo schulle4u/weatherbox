@@ -98,6 +98,10 @@ class WeatherboxService:
                 fresh = self.weather_provider.fetch(location)
                 self.weather_cache.save(location.id, fresh)
                 cached = fresh
+                # Fetching may take long enough that the new bundle's timestamp
+                # is later than the value captured before the request.  Use a
+                # current reference time for the final freshness check.
+                now = self.now_fn()
                 LOG.info("Weather data updated", extra={"location_id": location.id})
             except Exception as exc:
                 if cached and self.weather_cache.is_fresh(
@@ -114,7 +118,7 @@ class WeatherboxService:
         if not cached or not self.weather_cache.is_fresh(
             cached, now, self.config.weather.max_cache_age_minutes
         ):
-            raise WeatherUnavailableError(f"Weather cache for {location.id} is to old")
+            raise WeatherUnavailableError(f"Weather cache for {location.id} is too old")
         forecast = cached.for_time(playback_at)
         if forecast is None:
             raise WeatherUnavailableError(
