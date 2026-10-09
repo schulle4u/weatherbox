@@ -2,20 +2,9 @@
 
 [English](README.md) | Deutsch
 
-Weatherbox erstellt automatisch gesprochene oder statische Wetterberichte für deine Standorte –
-zum Beispiel für ein Webradio oder einen Raspberry Pi als Abspielgerät.
-Die Ansagen werden zur vollen und halben Stunde vorbereitet und als fertige
-Audio- oder HTML-Dateien bereitgestellt. Du spielst oder zeigst sie mit deiner
-eigenen Radioautomation, einem Audioplayer oder Browser. Bereits
-heruntergeladene Ansagen bleiben auch bei unterbrochener Internetverbindung
-verfügbar.
+Weatherbox erstellt automatisch gesprochene oder statische Wetterberichte für beliebige Standorte – zum Beispiel für ein Webradio oder einen Raspberry Pi als Abspielgerät. Die Ansagen werden zur vollen und halben Stunde vorbereitet und als fertige Audio- oder HTML-Dateien zur verwendung mit jeder beliebigen Radioautomation bereitgestellt. Bereits heruntergeladene Ansagen bleiben somit auch bei unterbrochener Internetverbindung verfügbar.
 
-Du kannst mehrere Orte einrichten, deutsche oder englische Ansagetexte verwenden
-und auf Wunsch eigene Intros, Outros und Hintergrundmusik hinzufügen.
-Wetterdaten kommen von Open-Meteo und/oder dem Deutschen Wetterdienst;
-Sprachausgabe ist über gTTS, Piper oder eSpeak NG möglich.
-Die Ausgabe erfolgt standardmäßig als MP3; weitere Audioformate und
-lesefreundliche HTML-Assets sind verfügbar.
+Es können mehrere Orte eingerichtet werden, welche deutsche oder englische Ansagetexte verwenden und auf Wunsch sogar eigene Intros, Outros und Hintergrundmusik beim Zusammenbauen der Audiodateien hinzufügen. Die Wetterdaten kommen von Open-Meteo und/oder dem Deutschen Wetterdienst; Sprachausgabe ist über gTTS, Piper oder eSpeak NG möglich. Die Ausgabe erfolgt standardmäßig als MP3; weitere Audioformate und lesefreundliche HTML-Assets sind verfügbar.
 
 ## Installation wählen
 
